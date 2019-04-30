@@ -34,14 +34,14 @@ FILE *outfile;
 #define MAXNV 128 
 
 static int col[MAXNV];
-static boolean first;
-static boolean first2;
+static booleann first;
+static booleann first2;
 static int lastreject[MAXNV];
-static boolean lastrejok;
+static booleann lastrejok;
 static double groupsize;
 static unsigned long long newgroupsize;
 static int graphSize;
-static boolean Tswitch;
+static booleann Tswitch;
 
 static int fail_level;
 
@@ -144,7 +144,7 @@ static leveldata data;      /* data[n] is data for n -> n+1 */
 #endif  /* MAXN */
 
 
-static boolean connectedSwitch   = FALSE
+static booleann connectedSwitch   = FALSE
        , nonTrivialSwitch         = FALSE
        , printCrnSwitch           = FALSE
        , conservationLawSwitch    = FALSE
@@ -164,7 +164,7 @@ static int maxMol[MAXNN];
 
 
 /*************************************/
-boolean canonise = 0;
+booleann canonise = 0;
 static char* speciesNames = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 static graph gcan[MAXNN];
 static xword pxx[MAXNN];         // TODO: is 12 the max number of species supported?
@@ -215,7 +215,7 @@ struct crnextendState {
   xword assigned;
   xword assignedHeterodimers;
   int streak;
-  boolean isRigid;
+  booleann isRigid;
   int currentCardinality;
   int currentXSetIndex;
   naugroupState groupState;
@@ -722,7 +722,7 @@ static int next_perm(unsigned int v) {
   return w;
 }
 
-boolean skipEdge(xword x, xword assigned, graph* g, int n) {
+booleann skipEdge(xword x, xword assigned, graph* g, int n) {
   // check that x is not coloring an already assigned monomer or monodimer
   if (x & assigned & colorMask[1]
     || x & assigned & colorMask[2]
@@ -908,7 +908,7 @@ static printDotGraph(graph* g, int n, int spCount, int* colorMask) {
   }
   printf("}\n\n");
 
-  boolean b = FALSE;
+  booleann b = FALSE;
   int mask = (int) pow(2, graphSize) - 1;
   for (int i = 0; i < graphSize; i++) {
     xword w = g[i];
@@ -1121,7 +1121,7 @@ void extendGraph(graph* g, xword x, int n){
 }
 
 // Depth-first search of connected components (stops as soon as it has been confirmed that all species are connected)
-int connectedSpecies(graph* g, int current, int n, boolean* visited, int missingSpecies){
+int connectedSpecies(graph* g, int current, int n, booleann* visited, int missingSpecies){
   visited[current] = TRUE;
   int currMissing = missingSpecies;
   if (current >= graphSize) currMissing--;
@@ -1152,9 +1152,9 @@ int connectedSpecies(graph* g, int current, int n, boolean* visited, int missing
   return currMissing;
 }
 
-boolean isConnected(graph*g, int n) {
+booleann isConnected(graph*g, int n) {
   // set visited nodes array
-  boolean* visited = malloc(n * sizeof(boolean));
+  booleann* visited = malloc(n * sizeof(booleann));
   for (int i = 0; i < n; i++) 
     // set the naught node as visited, as it doesn't count for connectedness
     if ((colorMask[0] & xbit[i]) != 0) visited[i] = TRUE;
@@ -1231,9 +1231,9 @@ void freeIncidenceMatrix(float** matrix, int n){
 }
 
 // check that all species can be produced and consumed by some species
-boolean allProducedAndConsumed(int** matrix, int ne) {
-  boolean allProduced = TRUE;
-  boolean allConsumed = TRUE;
+booleann allProducedAndConsumed(int** matrix, int ne) {
+  booleann allProduced = TRUE;
+  booleann allConsumed = TRUE;
   for (int i = 0; i < speciesCount; i++){
     int canProduce = FALSE;
     int canConsume = FALSE;
@@ -1397,14 +1397,14 @@ float** makeFarkasArray(float** matrix, int m, int* matrixRowsDim, int* allocate
   return matrix;
 }
 
-boolean isNonTrivial(graph* g, int ne){
+booleann isNonTrivial(graph* g, int ne){
   float** matrix = makeIncidenceMatrix(g, speciesCount, ne);
   makeReducedRowEchelon(matrix, speciesCount, ne);
 
-  boolean res = TRUE;
+  booleann res = TRUE;
   for (int i = 0; i < speciesCount; i++) {
-    boolean allPositive = TRUE;
-    boolean allZero = TRUE;
+    booleann allPositive = TRUE;
+    booleann allZero = TRUE;
     for (int j = 0; j < ne; j++) {
       if (matrix[i][j] < 0) {
         allPositive = FALSE;
@@ -1422,21 +1422,21 @@ boolean isNonTrivial(graph* g, int ne){
 }
 
 void accept2(graph* g, int n){
-  boolean con = TRUE;
+  booleann con = TRUE;
   if (connectedSwitch == TRUE) con = isConnected(g, n);
 
   if (con) 
   {
     int ne = countEdges(g,n);
-    boolean nonTrivial = TRUE;
+    booleann nonTrivial = TRUE;
     if(nonTrivialSwitch == TRUE){
       nonTrivial = isNonTrivial(g, ne);
     }
     if(nonTrivial == TRUE)
     {
-      boolean isConserving     = TRUE;
-      boolean isNotConserving  = TRUE;
-      boolean isMassConserving = TRUE;
+      booleann isConserving     = TRUE;
+      booleann isNotConserving  = TRUE;
+      booleann isMassConserving = TRUE;
       if (conservationLawSwitch == TRUE || nonConservationLawSwitch == TRUE || massConservingSwitch == TRUE){
         float** matrix = makeIncidenceMatrix(g, n, ne);
 
@@ -1485,8 +1485,8 @@ void accept2(graph* g, int n){
 
 
 
-boolean isCanon(graph* g, int n) {
-  boolean isCanon;
+booleann isCanon(graph* g, int n) {
+  booleann isCanon;
   
   if (!states[n].isRigid) {
     first2 = TRUE;
@@ -1526,7 +1526,7 @@ void makeNextState(graph* g, int n, xword x, int xc, int i) {
   extendGraph(g, x, n);
 
   // check if the group has to be recomputed
-  boolean hasCardinalityIncreased = (xc != states[n].currentCardinality);
+  booleann hasCardinalityIncreased = (xc != states[n].currentCardinality);
   
   // update which blank nodes are now fully or partially assigned
   states[n+1].assigned             = states[n].assigned | (x & (colorMask[1] | colorMask[2] | states[n].assignedHeterodimers));
@@ -1554,7 +1554,7 @@ void
   int currXc  = states[n].currentCardinality;   
   int currIdx = states[n].currentXSetIndex;
 
-  boolean isLastAssignment = (nx == maxn);
+  booleann isLastAssignment = (nx == maxn);
   if (isLastAssignment)
   {
     /* infer the last assignment. 
@@ -1570,7 +1570,7 @@ void
     if (skipEdge(x, states[n].assigned, g, n)) return; // skip invalid species assignments.
     
     // recompute the group if the cardinality has increased
-    boolean hasCardinalityIncreased = (xc != currXc);
+    booleann hasCardinalityIncreased = (xc != currXc);
     if (hasCardinalityIncreased)
       saveState(n);
     makeNextState(g, n, x, xc, i);
@@ -1594,7 +1594,7 @@ void
       if (skipEdge(x, states[n].assigned, g, n)) continue;  // skip invalid assignments
       
       // recompute the group if the cardinality has increased
-      boolean hasCardinalityIncreased = (xc != currXc);
+      booleann hasCardinalityIncreased = (xc != currXc);
       if (hasCardinalityIncreased)
         saveState(n);
       makeNextState(g, n, x, xc, i);
@@ -1614,7 +1614,7 @@ void
 }
 
 /// checks whether a species assignment is valid (e.g. the same species cannot occur in two separate homomers)
-static boolean validAssignment(xword i, xword* colorMask, int maxHeterodimers) {
+static booleann validAssignment(xword i, xword* colorMask, int maxHeterodimers) {
   if (i & colorMask[0]
     || XPOPCOUNT(i & colorMask[1]) > 1
     || XPOPCOUNT(i & colorMask[2]) > 1
@@ -1624,7 +1624,7 @@ static boolean validAssignment(xword i, xword* colorMask, int maxHeterodimers) {
 }
 
 static void
-makeleveldata(boolean restricted, xword* colorMask, int speciesCount)
+makeleveldata(booleann restricted, xword* colorMask, int speciesCount)
 /* make the level data for each level */
 {
   long h;
@@ -1768,13 +1768,13 @@ testmax(int *p, int n, int *abort)
 
 
 static int
-trythisone(grouprec *group, graph *g, boolean digraph, int m, int n
+trythisone(grouprec *group, graph *g, booleann digraph, int m, int n
   , int reactionsCount
   , int* lab, int* ptn, int* orbits, optionblk options, statsblk stats, int* workspace)
   /* Try one solution, accept if maximal. */
   /* Return value is level to return to. */
 {
-  boolean accept;
+  booleann accept;
   newgroupsize = 1;
 
   if (!group || groupsize == 1)
@@ -1885,7 +1885,7 @@ trythisone(grouprec *group, graph *g, boolean digraph, int m, int n
 /**************************************************************************/
 
 static int
-scan(int level, graph *g, boolean digraph, int *prev, long minedges, long maxedges,
+scan(int level, graph *g, booleann digraph, int *prev, long minedges, long maxedges,
   long sofar, long numcols, grouprec *group, int m, int n,
   int reactionsCount, int *currMol, int *maxMol,
   int* lab, int* ptn, int* orbits, optionblk options, statsblk stats, int* workspace)
@@ -1945,7 +1945,7 @@ colourdigraph(graph *g, int nfixed, long minedges, long maxedges,
   size_t ii;
   set *gi, *gj, *gci, *gcj;
   int lab[MAXNV], ptn[MAXNV], orbits[MAXNV];
-  boolean loop[MAXNV];
+  booleann loop[MAXNV];
   int prev[MAXNV]; /* If >= 0, earlier point that must have greater colour */
   int weight[MAXNV];
   int region, start, stop;
@@ -2107,9 +2107,9 @@ main(int argc, char *argv[])
   int m, n, codetype, /*reactionsCount,*/ molecularity = 2;
   int argnum, j, nfixed;
   char *arg, sw;
-  boolean badargs, digraph;
-  boolean fswitch, uswitch, eswitch, qswitch, mswitch;
-  boolean hasSpeciesCount;
+  booleann badargs, digraph;
+  booleann fswitch, uswitch, eswitch, qswitch, mswitch;
+  booleann hasSpeciesCount;
   long minedges, maxedges, numcols;
   char *infilename, *outfilename;
   FILE *infile;
