@@ -1,5 +1,5 @@
 # Nauty's source code folder
-NAUTY=../forkedNauty/
+NAUTY=../nauty/
 
 all: 
 	gcc -O4 -I$(NAUTY) -march=native genCRN.c $(NAUTY)gtnauty.c $(NAUTY)gtools.c $(NAUTY)naugraph.c $(NAUTY)naugroup.c $(NAUTY)naurng.c $(NAUTY)nausparse.c $(NAUTY)nautil.c $(NAUTY)nautinv.c $(NAUTY)naututil.c $(NAUTY)nauty.c $(NAUTY)schreier.c $(NAUTY)naututil.h -o genCRN
