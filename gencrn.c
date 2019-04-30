@@ -2247,7 +2247,7 @@ main(int argc, char *argv[])
   #endif
   while (TRUE)
   {
-    if ((g = readgg(infile, NULL, 0, &m, &n, &digraph, speciesCount)) == NULL) break;
+    if ((g = readggcrn(infile, NULL, 0, &m, &n, &digraph, speciesCount)) == NULL) break;
     ++vc_nin;
    
     numcols = molecularity = 4; // molecularity;
