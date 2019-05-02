@@ -718,7 +718,7 @@ static int next_perm(unsigned int v) {
 #ifdef _WIN32
   _BitScanForward(&i, v);
   w = (t + 1) | (((~t & -~t) - 1) >> (i + 1));
-#elif __linux__ 
+#else
   w = (t + 1) | (((~t & -~t) - 1) >> (__builtin_ctz(v) + 1));
 #endif
   return w;
@@ -749,7 +749,7 @@ booleann skipEdge(xword x, xword assigned, graph* g, int n) {
 /*********************************************************************/
 
 // prints a graph encoding of a CRN into LBS format 
-static printCRN(graph* g, int n, int spCount) {
+static void printCRN(graph* g, int n, int spCount) {
   char** nodeNames = (char**)malloc(sizeof(char*) * graphSize);
   for (int z = 0; z < graphSize; z++) {
     int nodeIdx = MAXNN - z - 1;
@@ -819,7 +819,7 @@ static printCRN(graph* g, int n, int spCount) {
   free(nodeNames);
 }
 
-static printDotGraph(graph* g, int n, int spCount, int* colorMask) {
+static void printDotGraph(graph* g, int n, int spCount, int* colorMask) {
 
   printf("digraph {\n{\nnode [style=filled];\n");
   char* speciesNames = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -941,7 +941,7 @@ static printDotGraph(graph* g, int n, int spCount, int* colorMask) {
 }
 
 
-static printERODE(graph* g, int n, int spCount, int ne){
+static void printERODE(graph* g, int n, int spCount, int ne){
   char** nodeNames = (char**)malloc(sizeof(char*) * graphSize);
   for (int z = 0; z < graphSize; z++) {
     int nodeIdx = MAXNN - z - 1;
@@ -2102,7 +2102,7 @@ main(int argc, char *argv[])
   double start;
   double end;
   double interval;
-  #ifdef __linux__
+  #ifndef _WIN32
   double t;
   #endif
   graph *g;
@@ -2241,9 +2241,9 @@ main(int argc, char *argv[])
 
   vc_nin = vc_nout = 0;
 
-  #ifdef __linux__
+  #ifndef _WIN32
   t = CPUTIME;
-  #elif _WIN32
+  #else
   QueryPerformanceFrequency(&frequency);
   QueryPerformanceCounter(&start);
   #endif
@@ -2266,10 +2266,10 @@ main(int argc, char *argv[])
     if (!uswitch && ferror(outfile)) gt_abort(">E gencrn output error\n");
     FREES(g);
   }
-  #ifdef __linux__
+  #ifndef _WIN32
   t = CPUTIME - t;
   interval = t;
-  #elif _WIN32
+  #else
   QueryPerformanceCounter(&end);
   interval = (double)(end.QuadPart - start.QuadPart) / frequency.QuadPart;
   #endif
