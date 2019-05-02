@@ -2,7 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-
+#ifndef _WIN32
+#include <limits.h>
+#endif
 // only bimolecular reactions for now
 int totalNumberOfNodes(int numberOfSpecies){
   return 1                                                  // naught node

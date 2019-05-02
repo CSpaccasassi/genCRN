@@ -26,6 +26,8 @@
 #include "nautinv.h"
 #ifdef _WIN32
 #include <windows.h>
+#else
+#include <math.h>
 #endif
 
 nauty_counter vc_nin,vc_nout;
@@ -2096,9 +2098,9 @@ colourdigraph(graph *g, int nfixed, long minedges, long maxedges,
 int
 main(int argc, char *argv[])
 {
-  LARGE_INTEGER frequency;
-  LARGE_INTEGER start;
-  LARGE_INTEGER end;
+  double frequency;
+  double start;
+  double end;
   double interval;
   #ifdef __linux__
   double t;
