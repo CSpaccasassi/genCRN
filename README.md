@@ -5,13 +5,18 @@
 2. Build genCRN. *More instructions to follow*
 
 ## Binaries
-To get started with genCRN without compiling the code, you can use pre-built exeuctables (for Windows), which are in the dist folder.
+To get started with genCRN without compiling the code, you can use pre-built executables (for Windows or Unix), which are in the dist folder.
 
 ## Usage
 CRNs are generated in two steps. First, non-isomorphic input graphs for genCRN are produced using `geng` and `directg` in NAUTY. Then, these input graphs are passed to genCRN to produce non-isomorphic CRNs using the *Complex-Species Graph* encoding.
 
 ### Step 1: Generate Input Graphs
-The simple program genInputGraphs.exe can be used to produce a series of calls these NAUTY utilities that enables the concatenation of all input graphs for a specified number of species and reactions. E.g. `genInputGraphs.exe 3 3` can be used to produce all input graphs of 3 species and 3 reactions. It produces as output
+The simple program genInputGraphs.exe can be used to produce a series of calls these NAUTY utilities that enables the concatenation of all input graphs for a specified number of species and reactions. 
+
+#### Example
+Produce all input graphs of 3 species and 3 reactions: `./genInputGraphs.exe 3 3`
+
+It produces as output:
 
 ```
 ./geng.exe 2 1 -d1 | ./directg.exe -e3 >> crn_3_3.txt
@@ -31,7 +36,7 @@ The simple program genInputGraphs.exe can be used to produce a series of calls t
 ./geng.exe 6 3 -d1 | ./directg.exe -e3 >> crn_3_3.txt
 ```
 
-By *piping* these results to the shell, the results of calling `geng` and `directg` are appended to the file crn_3_3.txt.
+By *piping* these results to the shell (e.g. `./genInputGraphs.exe 3 3 | bash`, the results of calling `geng` and `directg` are appended to the file crn_3_3.txt.
 
 N.B. genCRN relies on the *piping* results from one program to another, and so if using Windows, we recommend using the Linux sub-system for Windows 10. 
 
