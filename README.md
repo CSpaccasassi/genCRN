@@ -88,4 +88,20 @@ Count all non-isomorphic, non-trivial and connected CRNs with 3 species and 3 re
 
 `./genCRN -n3 -t -c -q crn_3_3.txt`
 
-*More to follow*
+#### Reversible CRNs
+To enumerate reversible CRNs, it is sufficient to remove the invokation of `directg.exe` from the output of `genInputGraphs`. This can be achieved by another call to `sed`, such as `./genInputGraphs 3 3 | sed -e 's/ | \.\/directg -e3//g'`. The resulting input undirected graphs can then be passed to `genCRN`, which will automatically interpret them as digraphs where each undirected graph is replaced by two edges with opposite directions.
+
+#### Parallelisation
+CRN enumeration can be conducted in parallel, by splitting the input digraphs into different files, and passing them as input to different instances of genCRN. This can be achieved easily in Bash (and Git Bash in Windows).
+
+For example, suppose that we wanted to enumerate all non-isomorphic CRNs with 5 species and 6 reactions on 65 cores. 
+We first create the input digraphs file using `genInputGraphs` as above. Then the following command splits the input file into 65 files, distributing each digraph in round-robin fashion:
+
+`split -d --additional-suffix=.txt --number=r/65 crn_5_6.txt crn_5_6_part`
+
+The command splits the input file `crn_5_6.txt` into 65 files called `crn_5_6_part00`, `crn_5_6_part01`, ..., `crn_5_6_part64`.
+
+Next, we can run 65 instances of `genCRN` as follows:
+`for i in `ls crn_5_6_part*`; do (time ../GenCRN.exe -q -n5 $i > result_$i) & done`
+
+Each instance of `genCRN` creates a file called `result_crn_5_6_i`, where `i` ranges from 0 to 64, and populates it with CRN counts when the enumeration is finished. To check if the enumeration is still running, a useful command is `ps aux | grep genCRN`.
