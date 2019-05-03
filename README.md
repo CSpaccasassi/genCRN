@@ -15,6 +15,8 @@
 5. Click "File" -> "Open" -> "Project/Solution..." and select the "genCRN.sln" file in the genCRN/vs folder
 6. Click "Build" -> "Build solution"/. This creates `geng.exe`, `directg.exe`, `genCRN.exe` and `genInputGraphs` in the genCRN/vs/x64/Release folder
 
+N.B. Make sure that the build configuration in Visual Studio is set on  "Release" rather than "Debug". When compiled in "Debug" mode, `genCRN` may experience a severe penalty in performance. More information here: https://docs.microsoft.com/en-us/visualstudio/debugger/how-to-set-debug-and-release-configurations?view=vs-2019.
+
 ## Binaries
 To get started with genCRN without compiling the code, you can use pre-built executables (for Windows or Unix), which are in the dist folder.
 
