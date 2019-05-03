@@ -6,3 +6,6 @@
 *.ilk
 *.log
 *.asv
+.vs
+*/Debug
+*/Release
