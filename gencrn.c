@@ -2098,13 +2098,17 @@ colourdigraph(graph *g, int nfixed, long minedges, long maxedges,
 int
 main(int argc, char *argv[])
 {
+#ifdef _WIN32
+  LARGE_INTEGER frequency;
+  LARGE_INTEGER start;
+  LARGE_INTEGER end;
+#else
   double frequency;
   double start;
   double end;
-  double interval;
-  #ifndef _WIN32
   double t;
-  #endif
+#endif
+  double interval;
   graph *g;
   int m, n, codetype, /*reactionsCount,*/ molecularity = 2;
   int argnum, j, nfixed;
