@@ -38,7 +38,7 @@ It produces as output:
 
 By *piping* these results to the shell (e.g. `./genInputGraphs.exe 3 3 | bash`, the results of calling `geng` and `directg` are appended to the file crn_3_3.txt.
 
-N.B. genCRN relies on the *piping* results from one program to another, and so if using Windows, we recommend using the Linux sub-system for Windows 10. 
+N.B. genCRN relies on the *piping* results from one program to another. On Windows, we recommend using Git Bash. 
 
 ### Step 2: Generate non-isomorphic CRNs
 
