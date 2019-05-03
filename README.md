@@ -14,9 +14,7 @@ On Windows:
 3. Install Visual Studio 2019 (any edition will do, such as the Community Edition), making sure the "Desktop development for C++" workload is selected (this will install the MSVC compiler for C)
 4. Start Visual Studio
 5. Click "File" -> "Open" -> "Project/Solution..." and select the "genCRN.sln" file in the genCRN/vs folder
-6. Click "Build" -> "Build solution" to create `genCRN.exe` and `genInputGraphs` in the genCRN/vs/Release folder
-
-*More instructions to follow to compile NAUTY in Windows; pre-compiled binaries are available in the genCRN/dist folder*
+6. Click "Build" -> "Build solution"/. This creates `geng.exe`, `directg.exe`, `genCRN.exe` and `genInputGraphs` in the genCRN/vs/x64/Release folder
 
 ## Binaries
 To get started with genCRN without compiling the code, you can use pre-built executables (for Windows or Unix), which are in the dist folder.
