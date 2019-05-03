@@ -1,16 +1,15 @@
 # genCRN: Fast enumeration of non-isomorphic chemical reaction networks
 
 ## Building genCRN
-On Unix:
 1. git clone NAUTY from this forked location: https://github.com/CSpaccasassi/nauty
 2. git clone genCRN from this repository in the same root folder as NAUTY
+
+#### On Unix:
 3. run `./configure --enable-wordsize=32` in the NAUTY folder as NAUTY
 4. run `make all` in the NAUTY folder, which produces the `geng` and `directg` executables
 5. run `make` in the genCRN folder, which produces the `genCRN` and `genInputGraphs` executables
 
-On Windows:
-1. git clone NAUTY from this forked location: https://github.com/CSpaccasassi/nauty
-2. git clone genCRN from this repository in the same root folder
+#### On Windows:
 3. Install Visual Studio 2019 (any edition will do, such as the Community Edition), making sure the "Desktop development for C++" workload is selected (this will install the MSVC compiler for C)
 4. Start Visual Studio
 5. Click "File" -> "Open" -> "Project/Solution..." and select the "genCRN.sln" file in the genCRN/vs folder
@@ -54,7 +53,11 @@ N.B. genCRN relies on the *piping* results from one program to another. On Windo
 
 ### Step 2: Generate non-isomorphic CRNs
 
-*More to follow*
+Non-isomorphic CRNs are produced from the input file generated above. GenCRN reads each digraph and produces all non-isomorphic CRNs. The output format is LBS, unless the flag `-q` is used, to produce a total count only.
+
+N.B. If the input graph is undirected, it is considered a reversible network (each undirected edge is turned into two opposite directed edges).
+
+Below is a table showing all possible flags, and examples of using them.
 
 | Flag  | Category |
 | ----- | -------- |
