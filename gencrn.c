@@ -1,5 +1,4 @@
-/* copied from vcolg.c */
-/* vcolg.c version 2.0; B D McKay, May 11, 2017 */
+/* command-line help and arguments passing adapted from vcolg.c version 2.0; B D McKay, May 11, 2017 */
 
 #define USAGE \
 "gencrn [-n#] [-q] [-z] [-c] [-t|-l|-m] [-x]  \n"
@@ -30,7 +29,7 @@
 #include <math.h>
 #endif
 
-nauty_counter vc_nin,vc_nout;
+nauty_counter vc_nin, vc_nout;
 FILE *outfile;
 
 #define MAXNV 128 
@@ -157,8 +156,8 @@ static booleann connectedSwitch   = FALSE
 
 
 
-static int speciesCount; 
-static int* colorLab; 
+static int speciesCount;
+static int* colorLab;
 static int* colorPtn;
 static int  colorMask[4];
 static int currMol[MAXNN];
@@ -193,11 +192,11 @@ DYNALLSTAT(int, myid, myid_sz);
 struct naugroupState {
   grouprec* group;
   int group_depth;
-  
+
   // coset representatives; must be populated by makecosetreps(group);
   cosetrec* coset;
   size_t coset_sz;
-  
+
   permrec *gens;
   permrec *freelist;
   int     freelist_n;
@@ -251,7 +250,7 @@ void saveGroupState(int n) {
   // return state;
 }
 
-void loadGroupState (int n) {
+void loadGroupState(int n) {
   mygroup       = states[n].groupState.group;
   mygroup_depth = states[n].groupState.group_depth;
   mycoset       = states[n].groupState.coset;
@@ -277,7 +276,7 @@ void loadGroupState (int n) {
   states[n].groupState.id_sz       = 0;
 }
 
-void resetGroupState(){
+void resetGroupState() {
   mygroup       = NULL;
   mygroup_depth = 0;
   mycoset       = 0;
@@ -733,7 +732,7 @@ booleann skipEdge(xword x, xword assigned, graph* g, int n) {
 
   // check that x doesn't form duplicate heterodimers
   unsigned int newHeterodimerAssignment = reverse(x & colorMask[3]); // reverse due to g[graphSize+c] bits being in reverse order
-  if (newHeterodimerAssignment){
+  if (newHeterodimerAssignment) {
     unsigned int reversedColorMask = reverse(colorMask[3]);
     for (int c = 0; c < n - graphSize; c++) {
       unsigned int oldHeterodimerAssignemnt = g[graphSize + c] & reversedColorMask;
@@ -762,7 +761,7 @@ static void printCRN(graph* g, int n, int spCount) {
     if (!(colorMask[3] & bit[nodeIdx])) {
       if (colorMask[0] & bit[nodeIdx]) {
         sprintf(nodeNames[z], "");
-        }
+      }
       else {
         int idx = -1;
         for (int speciesIdx = 0; speciesIdx < spCount; speciesIdx++) {
@@ -812,7 +811,7 @@ static void printCRN(graph* g, int n, int spCount) {
   }
 
   printf("---------\n");
-  
+
   for (int i = 0; i < graphSize; i++) {
     free(nodeNames[i]);
   }
@@ -898,7 +897,7 @@ static void printDotGraph(graph* g, int n, int spCount, int* colorMask) {
             else { idx2 = colorIdx; break; }
         }
 
-        if (idx1 > idx2){
+        if (idx1 > idx2) {
           int tmp = idx1;
           idx1 = idx2;
           idx2 = tmp;
@@ -941,7 +940,7 @@ static void printDotGraph(graph* g, int n, int spCount, int* colorMask) {
 }
 
 
-static void printERODE(graph* g, int n, int spCount, int ne){
+static void printERODE(graph* g, int n, int spCount, int ne) {
   char** nodeNames = (char**)malloc(sizeof(char*) * graphSize);
   for (int z = 0; z < graphSize; z++) {
     int nodeIdx = MAXNN - z - 1;
@@ -964,7 +963,7 @@ static void printERODE(graph* g, int n, int spCount, int ne){
             idx = speciesIdx; break;
           }
         }
-        if (colorMask[2] & bit[nodeIdx]) 
+        if (colorMask[2] & bit[nodeIdx])
           sprintf(nodeNames[z], "%c+%c", speciesNames[idx], speciesNames[idx]);
         else sprintf(nodeNames[z], "%c", speciesNames[idx]);
       }
@@ -999,7 +998,7 @@ static void printERODE(graph* g, int n, int spCount, int ne){
   for (int i = 0; i < spCount; i++) {
     printf("init %c 1.0 |\r\n", speciesNames[i]);
   }
-  for (int i = 0; i < ne; i++){
+  for (int i = 0; i < ne; i++) {
     printf("init P%i 1.0 |\r\n", i);
   }
 
@@ -1021,7 +1020,7 @@ static void printERODE(graph* g, int n, int spCount, int ne){
         // all other reactions
         else                         printf("%s+P%i->{K%i}%s+P%i|\n", reactant, r, r, product, r);
         r++;
-        }
+      }
     }
   }
 
@@ -1033,7 +1032,7 @@ static void printERODE(graph* g, int n, int spCount, int ne){
   free(nodeNames);
 }
 /**************************************************************************/
-/* 
+/*
    TODO: better explanation
    TODO: adjust explanation to new rigidStreak algorithm
 
@@ -1050,11 +1049,11 @@ static void printERODE(graph* g, int n, int spCount, int ne){
 
    Orbit information is stored in data, therefore we can quickly check if this is the case without calling Nauty again.
 */
-struct canonTestArgs { 
-  graph* g; 
-  int currentSpeciesCount; 
-  int n; 
-  xword x; 
+struct canonTestArgs {
+  graph* g;
+  int currentSpeciesCount;
+  int n;
+  xword x;
 };
 
 int cmpfunc(const void * a, const void * b) {
@@ -1086,10 +1085,10 @@ static void myFun(int *p, int k, int *abort, void* gvoid) {
     {
       int j1 = XNEXTBIT(w);
       w ^= xbit[j1];
-      pxsetStreak[z] |= xbit[p[MAXNN - j1 -1]];
+      pxsetStreak[z] |= xbit[p[MAXNN - j1 - 1]];
     }
   }
-  
+
 
   // sort the assignments, to ensure they are in canonical form
   qsort(pxsetStreak, streak, sizeof(xword), cmpfunc);
@@ -1108,7 +1107,7 @@ static void myFun(int *p, int k, int *abort, void* gvoid) {
   }
 }
 
-void extendGraph(graph* g, xword x, int n){
+void extendGraph(graph* g, xword x, int n) {
   // create complete CRN in gx
   int i;
   g[n] = 0;
@@ -1123,20 +1122,20 @@ void extendGraph(graph* g, xword x, int n){
 }
 
 // Depth-first search of connected components (stops as soon as it has been confirmed that all species are connected)
-int connectedSpecies(graph* g, int current, int n, booleann* visited, int missingSpecies){
+int connectedSpecies(graph* g, int current, int n, booleann* visited, int missingSpecies) {
   visited[current] = TRUE;
   int currMissing = missingSpecies;
   if (current >= graphSize) currMissing--;
   if (currMissing == 0)     return currMissing;
-  
+
   // check targets from outgoing edges
   xword targets = g[current];
   while (targets) {
     int target = 0;
     target  = XNEXTBIT(targets);
     targets ^= xbit[target];
-    target  = MAXNN - target -1;
-    if (visited[target] == FALSE){
+    target  = MAXNN - target - 1;
+    if (visited[target] == FALSE) {
       currMissing = connectedSpecies(g, target, n, visited, currMissing);
       if (currMissing == 0) return currMissing;
     }
@@ -1144,8 +1143,8 @@ int connectedSpecies(graph* g, int current, int n, booleann* visited, int missin
 
   // check incoming edges
   unsigned int currentBit = bit[current];
-  for (int i = 0; i < n; i++){
-    if ((g[i] & currentBit) != 0 && visited[i] == FALSE){
+  for (int i = 0; i < n; i++) {
+    if ((g[i] & currentBit) != 0 && visited[i] == FALSE) {
       currMissing = connectedSpecies(g, i, n, visited, currMissing);
       if (currMissing == 0) return currMissing;
     }
@@ -1157,7 +1156,7 @@ int connectedSpecies(graph* g, int current, int n, booleann* visited, int missin
 booleann isConnected(graph*g, int n) {
   // set visited nodes array
   booleann* visited = malloc(n * sizeof(booleann));
-  for (int i = 0; i < n; i++) 
+  for (int i = 0; i < n; i++)
     // set the naught node as visited, as it doesn't count for connectedness
     if ((colorMask[0] & xbit[i]) != 0) visited[i] = TRUE;
     else visited[i] = FALSE;
@@ -1170,9 +1169,9 @@ booleann isConnected(graph*g, int n) {
 }
 
 // count edges
-int countEdges(graph* g, int n){
+int countEdges(graph* g, int n) {
   int ne = 0;
-  for (size_t i = 0; i < graphSize; i++){
+  for (size_t i = 0; i < graphSize; i++) {
     ne += XPOPCOUNT(g[i]);
   }
 
@@ -1181,35 +1180,35 @@ int countEdges(graph* g, int n){
 
 float** makeIncidenceMatrix(graph* g, int n, int ne) {
   // init species-reactions matrix
-  float** matrix = (float**) malloc( speciesCount * sizeof(float*) );
-  for (int i = 0; i < speciesCount; i++){
-    matrix[i] = malloc( ne * sizeof(float) );
+  float** matrix = (float**)malloc(speciesCount * sizeof(float*));
+  for (int i = 0; i < speciesCount; i++) {
+    matrix[i] = malloc(ne * sizeof(float));
   }
-  
-  for (int i = 0; i < speciesCount; i++){
-    for (int j = 0; j < ne; j++){
+
+  for (int i = 0; i < speciesCount; i++) {
+    for (int j = 0; j < ne; j++) {
       matrix[i][j] = 0;
     }
   }
 
   // populate matrix
-  int j = 0 ; // reaction index in the matrix
-  for (int source = 0; source < graphSize; source++){
+  int j = 0; // reaction index in the matrix
+  for (int source = 0; source < graphSize; source++) {
     xword targets = g[source];
     while (targets) {
       int target = 0;
       target = XNEXTBIT(targets);
       targets ^= xbit[target];
 
-      for (int i = 0; i < speciesCount; i++){
+      for (int i = 0; i < speciesCount; i++) {
         if ((g[graphSize + i] & bit[source]) != 0) {
-          float k = 1; 
-          if      ((xbit[source] & colorMask[0]) != 0) k = 0; 
+          float k = 1;
+          if      ((xbit[source] & colorMask[0]) != 0) k = 0;
           else if ((xbit[source] & colorMask[2]) != 0) k = 2;
           matrix[i][j] = matrix[i][j] - k;
         }
-        
-        if ((g[graphSize + i] & xbit[target]) != 0){
+
+        if ((g[graphSize + i] & xbit[target]) != 0) {
           float k = 1;
           int targe2 = bit[target];
           if      ((targe2 & colorMask[0]) != 0) k = 0;
@@ -1225,9 +1224,9 @@ float** makeIncidenceMatrix(graph* g, int n, int ne) {
   return matrix;
 }
 
-void freeIncidenceMatrix(float** matrix, int n){
+void freeIncidenceMatrix(float** matrix, int n) {
   for (int i = 0; i < n; i++) {
-      free(matrix[i]);
+    free(matrix[i]);
   }
   free(matrix);
 }
@@ -1236,15 +1235,15 @@ void freeIncidenceMatrix(float** matrix, int n){
 booleann allProducedAndConsumed(int** matrix, int ne) {
   booleann allProduced = TRUE;
   booleann allConsumed = TRUE;
-  for (int i = 0; i < speciesCount; i++){
+  for (int i = 0; i < speciesCount; i++) {
     int canProduce = FALSE;
     int canConsume = FALSE;
-    for (int j = 0; j < ne; j++){
+    for (int j = 0; j < ne; j++) {
       if (matrix[i][j] < 0) canConsume = TRUE;
       if (matrix[i][j] > 0) canProduce = TRUE;
     }
 
-    if (!canProduce || !canConsume){
+    if (!canProduce || !canConsume) {
       allProduced = canProduce;
       allConsumed = canConsume;
       break;
@@ -1254,9 +1253,9 @@ booleann allProducedAndConsumed(int** matrix, int ne) {
   return (allProduced && allConsumed);
 }
 
-void flipRows (float** matrix, int r1, int r2, int m){
+void flipRows(float** matrix, int r1, int r2, int m) {
   float tmp;
-  for (int i = 0; i < m; i++){
+  for (int i = 0; i < m; i++) {
     tmp = matrix[r1][i];
     matrix[r1][i] = matrix[r2][i];
     matrix[r2][i] = tmp;
@@ -1264,41 +1263,41 @@ void flipRows (float** matrix, int r1, int r2, int m){
 }
 
 // Gauss-Jordan elimination, following the algorithm described here: http://people.math.carleton.ca/~kcheung/math/notes/MATH1107/wk04/04_gaussian_elimination.html
-void makeReducedRowEchelon(float** matrix, int m, int n){
+void makeReducedRowEchelon(float** matrix, int m, int n) {
   int p = 0;
-    for (int k = 0; k < n; k++){
-      for (int i = p; i < m; i++){
-        // find non-zero value
-        if (matrix[i][k] != 0){
-          if (i != p){
-            flipRows(matrix, i, p, n);
-          }
-          // Scale
-          float a = matrix[p][k];
-          for (int j = 0; j < n; j++){
-            matrix[p][j] = matrix[p][j] / a;
-          }
-          // Subtract
-          for (int q = 0; q < m; q++) {
-            if (q != p) {
-              float alpha = matrix[q][k];
-              for (int r = 0; r < n; r++){
-                matrix[q][r] = matrix[q][r] - matrix[p][r] * alpha;
-              }
+  for (int k = 0; k < n; k++) {
+    for (int i = p; i < m; i++) {
+      // find non-zero value
+      if (matrix[i][k] != 0) {
+        if (i != p) {
+          flipRows(matrix, i, p, n);
+        }
+        // Scale
+        float a = matrix[p][k];
+        for (int j = 0; j < n; j++) {
+          matrix[p][j] = matrix[p][j] / a;
+        }
+        // Subtract
+        for (int q = 0; q < m; q++) {
+          if (q != p) {
+            float alpha = matrix[q][k];
+            for (int r = 0; r < n; r++) {
+              matrix[q][r] = matrix[q][r] - matrix[p][r] * alpha;
             }
           }
-          
-          p++;
-          
-          if (p > m) return;
         }
+
+        p++;
+
+        if (p > m) return;
       }
     }
-}
+  }
+    }
 
-float gcd(float a, float b){
+float gcd(float a, float b) {
   float temp;
-  while (b != 0){
+  while (b != 0) {
     temp = fmod(a, b);
 
     a = b;
@@ -1307,62 +1306,62 @@ float gcd(float a, float b){
   return a;
 }
 
-float** makeFarkasArray(float** matrix, int m, int* matrixRowsDim, int* allocatedRowsCount){
+float** makeFarkasArray(float** matrix, int m, int* matrixRowsDim, int* allocatedRowsCount) {
   int n = speciesCount;
-  
+
   // extend the matrix by bufferSize rows at a time
-  int bufferSize = 10; 
+  int bufferSize = 10;
 
   // extend the incidence matrix with an n x n identity matrix
-  for (int i = 0; i < *matrixRowsDim; i++){
+  for (int i = 0; i < *matrixRowsDim; i++) {
     float* tmpPointer = realloc(matrix[i], (m + n) * sizeof(int));
-    if (tmpPointer == NULL) 
+    if (tmpPointer == NULL)
       fprintf(ERRFILE, ">E realloc failed in Farkas algorithm\n");
-    else 
+    else
       matrix[i] = tmpPointer;
-    
+
     // set identity matrix
-    for (int j = m; j < m + n; j++){
-      if (j-m == i) 
-           matrix[i][j] = 1.0;
+    for (int j = m; j < m + n; j++) {
+      if (j - m == i)
+        matrix[i][j] = 1.0;
       else matrix[i][j] = 0.0;
     }
   }
 
   int matrixBufferSize = n; // instead of allocating a single row at a time, we allocate a block of them at a time
-  
-  for (int i = 0; i < m; i++){
+
+  for (int i = 0; i < m; i++) {
     int r = *matrixRowsDim;
 
-    for (int j = 0; j < r; j++){
-      for (int k = j+1; k < r; k++){
+    for (int j = 0; j < r; j++) {
+      for (int k = j + 1; k < r; k++) {
         float* d1 = matrix[j];
         float* d2 = matrix[k];
 
-        if ((d1[i] > 0 && d2[i] < 0) || (d1[i] < 0L && d2[i] > 0L)){
+        if ((d1[i] > 0 && d2[i] < 0) || (d1[i] < 0L && d2[i] > 0L)) {
           // extend the matrix 
-          if (*matrixRowsDim == matrixBufferSize){ // allocate extra bufferSize rows in the matrix if required
+          if (*matrixRowsDim == matrixBufferSize) { // allocate extra bufferSize rows in the matrix if required
             matrixBufferSize += bufferSize;
             float** tmpPointer = (float**) realloc(matrix, (matrixBufferSize) * sizeof(float*));
             if (tmpPointer == NULL)
               fprintf(ERRFILE, ">E realloc failed in Farkas algorithm\n");
-            else{
+            else {
               matrix = tmpPointer;
               for (int z = 0; z < bufferSize; z++) {
-                matrix[matrixBufferSize - bufferSize + z] = malloc((n+m) * sizeof(float));
+                matrix[matrixBufferSize - bufferSize + z] = malloc((n + m) * sizeof(float));
               }
             }
           }
-          
+
           // extend matrix size
           (*matrixRowsDim)++;
 
           float d1a = fabs(d1[i]);
           float d2a = fabs(d2[i]);
           float g = -1;
-          for (int l = 0; l < m + n; l++){
+          for (int l = 0; l < m + n; l++) {
             float dd = d2a * d1[l] + d1a * d2[l];
-            matrix[*matrixRowsDim-1][l] = dd;
+            matrix[*matrixRowsDim - 1][l] = dd;
             if (g == -1) g = dd;
             else g = gcd(g, dd);
           }
@@ -1376,15 +1375,15 @@ float** makeFarkasArray(float** matrix, int m, int* matrixRowsDim, int* allocate
     // Delete all rows whose i-th component is different from 0.
     int idx = 0;
     int tmpMatrixRowsSize = *matrixRowsDim;
-    for (int j = 0; j < *matrixRowsDim; j++){
+    for (int j = 0; j < *matrixRowsDim; j++) {
       if (matrix[j][i] == 0) { // keep this row
         if (idx != j) {
           // overwrite to idx
-          for (int k = 0; k < n+m; k++){
+          for (int k = 0; k < n + m; k++) {
             matrix[idx][k] = matrix[j][k];
           }
         }
-        
+
         idx++;
       }
       else { // discard this row
@@ -1399,69 +1398,198 @@ float** makeFarkasArray(float** matrix, int m, int* matrixRowsDim, int* allocate
   return matrix;
 }
 
-booleann isNonTrivial(graph* g, int ne){
+booleann isNonTrivial(graph* g, int ne) {
   float** matrix = makeIncidenceMatrix(g, speciesCount, ne);
-  makeReducedRowEchelon(matrix, speciesCount, ne);
+
+  //makeReducedRowEchelon(matrix, speciesCount, ne); // disabled due to numerical errors in the procedure
 
   booleann res = TRUE;
+
+  // quick test: check if there is a positive vector in the stoichiometry matrix
   for (int i = 0; i < speciesCount; i++) {
+    booleann allNegative = TRUE;
     booleann allPositive = TRUE;
     booleann allZero = TRUE;
     for (int j = 0; j < ne; j++) {
       if (matrix[i][j] < 0) {
         allPositive = FALSE;
+        allZero = FALSE;
       }
-      if (matrix[i][j] != 0) allZero = FALSE;
+      else if (matrix[i][j] > 0) {
+        allNegative = FALSE;
+        allZero = FALSE;
+      }
     }
-    if (allPositive == TRUE && allZero != TRUE) {
+    if ((allPositive == TRUE || allNegative == TRUE) && allZero != TRUE) {
       res = FALSE;
       break;
     }
+  }
+
+  /* Application of the Fourier-Motzkin Elimination algorithm to the case (\Gamma^{T}x >= 0) with x \neq 0, where \Gamma is the stoichimetry matrix of the CRN.
+     (note: the stoichimoetry matrix \Gamma is not transposed in the code, we just reverse apply FME on it with indices reversed) */
+  boolean solved = FALSE;
+  if (res != FALSE) {
+    int matrixSize = ne;
+
+    int* pos = (int*)malloc(matrixSize * sizeof(int));
+    int* neg = (int*)malloc(matrixSize * sizeof(int));
+    boolean moreInequalitiesAdded = FALSE;
+
+    for (int j = 0; j < speciesCount; j++) {
+      int psize = 0; int nsize = 0; // size of P and N
+
+      // dynamically augment the set of positive and negative coefficient indices if more inequalities were created last time
+      if (moreInequalitiesAdded == TRUE) {
+        int* tmppos = (int*) realloc(pos, matrixSize * sizeof(int));
+        int* tmpneg = (int*) realloc(neg, matrixSize * sizeof(int));
+        
+        if (tmppos == NULL || (tmpneg == NULL))
+          fprintf(ERRFILE, ">E realloc failed in Fourier-Motzkin Elimination algorithm\n");
+        else {
+          pos = tmppos; 
+          neg = tmpneg;
+        }
+
+        moreInequalitiesAdded = FALSE;
+      }
+
+      boolean allCoefficientsAreZero = TRUE;
+      boolean allCoefficientsArePositive = TRUE;
+      boolean allCoefficientsAreNegative = TRUE;
+      // optimization: the following two booleans are used to detect if there are inequalities of the form 
+      // x_j >= 0 and -x_j >= 0    (i.e. single variable inequalities)
+      boolean someMonoCoefficientIsPositive = FALSE;
+      boolean someMonoCoefficientIsNegative = FALSE;
+      for (int i = 0; i < matrixSize; i++) {
+        if (matrix[j][i] == 0) continue;
+        else allCoefficientsAreZero = FALSE;
+
+        // check if all other coefficients are zero in the row
+        boolean onlyNonZeroCoefficient = TRUE;
+        for (int k = j + 1; k < speciesCount; k++) {
+          if (matrix[k][i] != 0) { onlyNonZeroCoefficient = FALSE; break; }
+        }
+
+        // mark down all positive and negative coefficients
+        if (onlyNonZeroCoefficient == TRUE) {
+          if (matrix[j][i] > 0) {
+            allCoefficientsAreNegative = FALSE;
+            someMonoCoefficientIsPositive = TRUE;
+            pos[psize] = i; psize++;
+          }
+          else {
+            allCoefficientsArePositive = FALSE;
+            someMonoCoefficientIsNegative = TRUE;
+            neg[nsize] = i; nsize++;
+          }
+        }
+        else {
+          if (matrix[j][i] > 0) { pos[psize] = i; psize++; allCoefficientsAreNegative = FALSE; }
+          else                  { neg[nsize] = i; nsize++; allCoefficientsArePositive = FALSE; }
+        }
+      }
+
+      // optimization: if x_j >= 0 and x_j <= 0, x_j must be 0
+      if (allCoefficientsAreZero == TRUE
+        || (someMonoCoefficientIsNegative == TRUE
+          && someMonoCoefficientIsPositive == TRUE)) continue; // assign 0 to this element of the vector
+
+      // found a positive vector in x_j, by putting x_j to 1 or -1 and all other coefficients x_i with i \neq j to 0
+      if ((allCoefficientsAreNegative || allCoefficientsArePositive)) {
+        solved = TRUE; break;
+      }
+
+      if ((psize != 0 || nsize != 0)) {
+        if (psize == 0) {       continue; }
+        else if (nsize == 0) {  continue; }
+        else {                                                
+          // Simplify x_j and create new inequalities, as per FME
+          moreInequalitiesAdded = TRUE;
+          
+          // allocate more space for the new equations
+          int newEquationsSize = matrixSize + (psize * nsize);
+          for (int k = 0; k < speciesCount; k++) {
+            float* tmpPointer = realloc(matrix[k], sizeof(float) * (newEquationsSize));
+            if (tmpPointer == NULL)
+              fprintf(ERRFILE, ">E realloc failed in Fourier-Motzkin Elimination algorithm\n");
+            else
+              matrix[k] = tmpPointer;
+          }
+
+          // create new inequalities
+          for (int pi = 0; pi < psize; pi++) {
+            for (int ni = 0; ni < nsize; ni++) {
+              int newColIndex = matrixSize + (pi*nsize) + ni;
+              for (int row = j + 1; row < speciesCount; row++) {
+                float pelem = matrix[row][pos[pi]] / fabs(matrix[j][pos[pi]]);
+                float nelem = matrix[row][neg[ni]] / fabs(matrix[j][neg[ni]]);
+                float diff = pelem + nelem;
+                matrix[row][newColIndex] = diff;
+              }
+            }
+          }
+
+          for (int k = j + 1; k < speciesCount; k++) {
+            for (int pi = 0; pi < psize; pi++) matrix[k][pos[pi]] = 0;
+            for (int ni = 0; ni < nsize; ni++) matrix[k][neg[ni]] = 0;
+          }
+          matrixSize = newEquationsSize;
+        }
+      }
+    }
+
+    free(pos);
+    free(neg);
+
+    res = (solved == FALSE);
   }
   freeIncidenceMatrix(matrix, speciesCount);
 
   return res;
 }
 
-void accept2(graph* g, int n){
+void accept2(graph* g, int n) {
   booleann con = TRUE;
   if (connectedSwitch == TRUE) con = isConnected(g, n);
 
-  if (con) 
+  if (con)
   {
-    int ne = countEdges(g,n);
+    int ne = countEdges(g, n);
     booleann nonTrivial = TRUE;
-    if(nonTrivialSwitch == TRUE){
+    if (counter >= 37462) { nonTrivialSwitch = TRUE; }
+
+    if (nonTrivialSwitch == TRUE) {
       nonTrivial = isNonTrivial(g, ne);
     }
-    if(nonTrivial == TRUE)
+    if (nonTrivial == TRUE)
     {
       booleann isConserving     = TRUE;
       booleann isNotConserving  = TRUE;
       booleann isMassConserving = TRUE;
-      if (conservationLawSwitch == TRUE || nonConservationLawSwitch == TRUE || massConservingSwitch == TRUE){
+      if (conservationLawSwitch == TRUE || nonConservationLawSwitch == TRUE || massConservingSwitch == TRUE) {
         float** matrix = makeIncidenceMatrix(g, n, ne);
 
         // compute Farkas array
         int matrixRowsDim = speciesCount;
-        int mSize         = -1; 
+        int mSize         = -1;
         matrix = makeFarkasArray(matrix, ne, &matrixRowsDim, &mSize);
         if (conservationLawSwitch == TRUE && matrixRowsDim == 0)    isConserving = FALSE;
         if (nonConservationLawSwitch == TRUE && matrixRowsDim != 0) isNotConserving = FALSE;
-        if (massConservingSwitch == TRUE){
-          if (matrixRowsDim == 0) 
+        if (massConservingSwitch == TRUE) {
+          if (matrixRowsDim == 0)
             isMassConserving = FALSE;
           else {
-            for (int i = 0; i < speciesCount; i++){
+            for (int i = 0; i < speciesCount; i++) {
               int speciesNotConserved = FALSE;
-              for (int j = 0; j < matrixRowsDim; j++){
-                if (matrix[j][ne+i] != 0.0){
+              for (int j = 0; j < matrixRowsDim; j++) {
+                if (matrix[j][ne + i] != 0.0) {
                   speciesNotConserved = TRUE;
                   break;
                 }
               }
 
-              if(speciesNotConserved == FALSE){
+              if (speciesNotConserved == FALSE) {
                 isMassConserving = FALSE;
                 break;
               }
@@ -1470,15 +1598,15 @@ void accept2(graph* g, int n){
         }
         freeIncidenceMatrix(matrix, mSize);
       }
-      
-      if ((!conservationLawSwitch && !nonConservationLawSwitch && !massConservingSwitch) 
-          || (conservationLawSwitch && isConserving) 
-          || (nonConservationLawSwitch && isNotConserving) 
-          || (massConservingSwitch && isMassConserving))
+
+      if ((!conservationLawSwitch && !nonConservationLawSwitch && !massConservingSwitch)
+        || (conservationLawSwitch && isConserving)
+        || (nonConservationLawSwitch && isNotConserving)
+        || (massConservingSwitch && isMassConserving))
       {
-        if (printCrnSwitch) 
+        if (printCrnSwitch)
           printCRN(g, n, speciesCount);
-          // printERODE(g, n, speciesCount, ne);
+        // printERODE(g, n, speciesCount, ne);
         counter++;
       }
     }
@@ -1489,10 +1617,10 @@ void accept2(graph* g, int n){
 
 booleann isCanon(graph* g, int n) {
   booleann isCanon;
-  
+
   if (!states[n].isRigid) {
     first2 = TRUE;
-    struct canonTestArgs args = { g, states[n].streak, n};
+    struct canonTestArgs args = { g, states[n].streak, n };
     isCanon = !myallgroup3(mygroup, myFun, &args);
   }
   else isCanon = TRUE;
@@ -1501,10 +1629,10 @@ booleann isCanon(graph* g, int n) {
 }
 
 
-void saveState(int n){
+void saveState(int n) {
   saveGroupState(n);
   if (states[n].currentCardinality != 0)
-  { 
+  {
     resetGroupState();
   }
 }
@@ -1512,14 +1640,14 @@ void saveState(int n){
 void resumeState(int n) {
   myfreegroup(mygroup);
   free(mygroup);
-  if(mycoset){
+  if (mycoset) {
     if (mycoset->rep) myfreepermrec(mycoset->rep, -1);
     free(mycoset);
   }
 
-  if(myallp) free(myallp);
-  if(myid) free(myid);
-  if(myfreelist) myfreepermrec(myfreelist, -1);
+  if (myallp) free(myallp);
+  if (myid) free(myid);
+  if (myfreelist) myfreepermrec(myfreelist, -1);
   loadGroupState(n);
 }
 
@@ -1529,14 +1657,14 @@ void makeNextState(graph* g, int n, xword x, int xc, int i) {
 
   // check if the group has to be recomputed
   booleann hasCardinalityIncreased = (xc != states[n].currentCardinality);
-  
+
   // update which blank nodes are now fully or partially assigned
-  states[n+1].assigned             = states[n].assigned | (x & (colorMask[1] | colorMask[2] | states[n].assignedHeterodimers));
-  states[n+1].assignedHeterodimers = states[n].assignedHeterodimers | x & ~states[n].assignedHeterodimers & colorMask[3];
-  states[n+1].streak               = !hasCardinalityIncreased ? states[n].streak + 1 : 1;
-  states[n+1].isRigid              = states[n].isRigid;
-  states[n+1].currentCardinality   = xc;
-  states[n+1].currentXSetIndex     = i;
+  states[n + 1].assigned             = states[n].assigned | (x & (colorMask[1] | colorMask[2] | states[n].assignedHeterodimers));
+  states[n + 1].assignedHeterodimers = states[n].assignedHeterodimers | x & ~states[n].assignedHeterodimers & colorMask[3];
+  states[n + 1].streak               = !hasCardinalityIncreased ? states[n].streak + 1 : 1;
+  states[n + 1].isRigid              = states[n].isRigid;
+  states[n + 1].currentCardinality   = xc;
+  states[n + 1].currentXSetIndex     = i;
 
   if (hasCardinalityIncreased)
     recomputeGroup(g, n);
@@ -1544,33 +1672,33 @@ void makeNextState(graph* g, int n, xword x, int xc, int i) {
 
 
 void
- crnextend(graph *g, int n, int ne)
+crnextend(graph *g, int n, int ne)
 /* adapted from genc.c;  */
 {
   xword x;
-  int nx, xc,  i;
+  int nx, xc, i;
 
   nx = n + 1; // new graph size
-  
+
   // get last assignment's cardinality
-  int currXc  = states[n].currentCardinality;   
+  int currXc  = states[n].currentCardinality;
   int currIdx = states[n].currentXSetIndex;
 
   booleann isLastAssignment = (nx == maxn);
   if (isLastAssignment)
   {
-    /* infer the last assignment. 
-       After choosing the previous n-1 species, there is only one possible assignment left to choose. 
+    /* infer the last assignment.
+       After choosing the previous n-1 species, there is only one possible assignment left to choose.
        Therefore we infer it from the graph, and check that it is valid and canonical */
     x  = (leastNBitsOn ^ (states[n].assigned));
     i  = data.xinv[x];
     xc = data.xcard[i];
-    
+
     //if (i <= 0) return;                              // failsafe check.
     if (xc < currXc || i < currIdx) return;            // assignments are only added in increasing order of cardinality and xset encoding.
     if (ne + xc != maxColorEdges) return;              // check that all complexes have species assigned.
     if (skipEdge(x, states[n].assigned, g, n)) return; // skip invalid species assignments.
-    
+
     // recompute the group if the cardinality has increased
     booleann hasCardinalityIncreased = (xc != currXc);
     if (hasCardinalityIncreased)
@@ -1580,7 +1708,7 @@ void
     // accept the state if canonical 
     if (isCanon(g, nx))
       accept2(g, nx);
-    
+
     // backtrack to previous state
     if (hasCardinalityIncreased)
       resumeState(n);
@@ -1594,18 +1722,18 @@ void
       x  = data.xset[i];
       xc = data.xcard[i];
       if (skipEdge(x, states[n].assigned, g, n)) continue;  // skip invalid assignments
-      
+
       // recompute the group if the cardinality has increased
       booleann hasCardinalityIncreased = (xc != currXc);
       if (hasCardinalityIncreased)
         saveState(n);
       makeNextState(g, n, x, xc, i);
-      
+
       // explore the new state if canonical
       if (isCanon(g, nx)) {
         crnextend(g, nx, ne + xc);
       }
-      
+
       // backtrack to previous state
       if (hasCardinalityIncreased) {
         resumeState(n);
@@ -1691,7 +1819,7 @@ makeleveldata(booleann restricted, xword* colorMask, int speciesCount)
       d->xinv[xset[z]] = z;
     }
 
-   if (d->xset == NULL || d->xcard == NULL || d->xinv == NULL )
+    if (d->xset == NULL || d->xcard == NULL || d->xinv == NULL)
     {
       fprintf(stderr, ">E geng: calloc failed in makeleveldata()\n");
       exit(2);
@@ -1801,13 +1929,13 @@ trythisone(grouprec *group, graph *g, booleann digraph, int m, int n
     {
       blanksCounter++;
       // create a bit mask for color assignments. Color 0 is for naught, 1 for homomers, 2 for dimers, 3 for heterodimers
-      for (int i =0; i < 4; i++)
+      for (int i = 0; i < 4; i++)
         colorMask[i] = 0;
 
       for (int idx = 0; idx < n; idx++)
         colorMask[col[idx]] |= 1 << idx;
 
-      
+
       int assigned = 0; // bitmask that stores which complexes have been fully assigned to some species
       int assignedHeterodimers = 0; // bitmask to store partially filled heterodimers
 
@@ -1830,7 +1958,7 @@ trythisone(grouprec *group, graph *g, booleann digraph, int m, int n
       maxColorEdges = 0;
       for (int c = 0; c < 4; c++) { // TODO: remove hard-coded number of colors (4)
         int color = colorMask[c];
-        while (color){
+        while (color) {
           int j = XNEXTBIT(color);
           color ^= xbit[j];
           lab[idx] = j;
@@ -1854,7 +1982,7 @@ trythisone(grouprec *group, graph *g, booleann digraph, int m, int n
 
       set active[MAXMM];
       active[0] = 0;
-     
+
       // call nauty to populate xorb
       nauty(g, lab, ptn, active, orbits, &options2, &stats, workspace, 50, 1, n, NULL);
       mymakecosetreps(mygroup);
@@ -1863,8 +1991,8 @@ trythisone(grouprec *group, graph *g, booleann digraph, int m, int n
       mindeg = 1;
       colorLab = lab;
       colorPtn = ptn;
-      
-      
+
+
       states[n].assigned             = assigned;
       states[n].assignedHeterodimers = assignedHeterodimers;
       states[n].streak               = 0;
@@ -2245,22 +2373,22 @@ main(int argc, char *argv[])
 
   vc_nin = vc_nout = 0;
 
-  #ifndef _WIN32
+#ifndef _WIN32
   t = CPUTIME;
-  #else
+#else
   QueryPerformanceFrequency(&frequency);
   QueryPerformanceCounter(&start);
-  #endif
+#endif
   while (TRUE)
   {
     if ((g = readggcrn(infile, NULL, 0, &m, &n, &digraph, speciesCount)) == NULL) break;
     ++vc_nin;
-   
+
     numcols = molecularity = 4; // molecularity;
     int maxComplexes = complexesTotal(speciesCount, 2);
     if (noZeroNodeSwitch == TRUE) maxComplexes--;
-    if (n <= maxComplexes){
-      maxn = n + (speciesCount); 
+    if (n <= maxComplexes) {
+      maxn = n + (speciesCount);
       mindeg = 0;
       // a species can occur at most in a homomer, a homodimer and (n-1) heterodimers in a CRN
       maxdeg = 2 + (speciesCount - 1);
@@ -2270,13 +2398,13 @@ main(int argc, char *argv[])
     if (!uswitch && ferror(outfile)) gt_abort(">E gencrn output error\n");
     FREES(g);
   }
-  #ifndef _WIN32
+#ifndef _WIN32
   t = CPUTIME - t;
   interval = t;
-  #else
+#else
   QueryPerformanceCounter(&end);
   interval = (double)(end.QuadPart - start.QuadPart) / frequency.QuadPart;
-  #endif
+#endif
 
 #ifdef SUMMARY
   SUMMARY();
