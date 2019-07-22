@@ -9,12 +9,13 @@
    If the input graph is an undirected, it is considered a reversible network (each undirected edge is turned into two opposite directed edges).\n\
 \n\
     -n# number of species\n\
-    -z  do not include naught in the reactions (e.g. 0 -> A)\n\
+    -z  do not include naught in any reaction (e.g. 0 -> A)\n\
     -c  do not produce CRNs containing independent sub-CRNs (e.g. A->B, C->D) \n\
     -t  only produce \"dynamically non-trivial\" CRNs (see https://arxiv.org/abs/1705.10820) \n\
     -m  only produce mass-conserving CRNs (all species are under some conservation law)\n\
     -l  only produce CRNs with at least a conservation law\n\
     -x  only produce CRNs with no conservation laws\n\
+    -b  encode CRN reactions into 1 byte (#species <= 4) or 2 bytes, and print them as a stream of bytes\n\
     -q  only count the number of CRNs\n"
 
 /*************************************************************************/
@@ -151,12 +152,14 @@ static booleann connectedSwitch   = FALSE
        , conservationLawSwitch    = FALSE
        , nonConservationLawSwitch = FALSE
        , noZeroNodeSwitch         = FALSE
-       , massConservingSwitch     = FALSE;
+       , massConservingSwitch     = FALSE
+       , byteEncodingSwitch       = FALSE;
 
 
 
 
 static int speciesCount;
+static int maxComplexes;
 static int* colorLab;
 static int* colorPtn;
 static int  colorMask[4];
@@ -747,7 +750,7 @@ booleann skipEdge(xword x, xword assigned, graph* g, int n) {
 
 /*********************************************************************/
 
-// prints a graph encoding of a CRN into LBS format 
+// prints a CRN's graph encoding into LBS format 
 static void printCRN(graph* g, int n, int spCount) {
   char** nodeNames = (char**)malloc(sizeof(char*) * graphSize);
   for (int z = 0; z < graphSize; z++) {
@@ -798,7 +801,6 @@ static void printCRN(graph* g, int n, int spCount) {
     }
   }
 
-  int mask = (int) pow(2, graphSize) - 1;
   for (int i = 0; i < graphSize; i++) {
     xword w = g[i];
     while (w) {
@@ -939,6 +941,129 @@ static void printDotGraph(graph* g, int n, int spCount, int* colorMask) {
   printf("---------------------\n");
 }
 
+/* Hashing function:
+\text{Let } N \text{ be the total number of species, and } m \text{ be the maximum number of complexes.}
+\\
+\\ \textup{hash}(C_1 \rightarrow C_2) = \textup{hash}(C_1)*m+\textup{hash}(C_2)
+\\
+\\ \textup{hash}(C) = \begin{cases}
+0                     & \text{if } C = \emptyset\\
+1+i                     & \text{if } C = A_i\\
+N+1+i                   & \text{if } C = 2A_i\\
+2N+1+\textup{hash}(i,j) & \text{if } C = A_i+ A_j, i < j, x = hash(i, j)\\
+\end{cases}
+\\
+\\ \textup{hash}(i, j) = \Big(N i - \frac{i (i+1)}{2}\Big) + (j - i -1)
+*/
+/* compute the hash number of a complex */
+// CRN reactions for N <= 4 can be encoded in a single byte
+byte hashHeterodimerByte(int i, int j) {
+  byte offset = speciesCount*i - (i * (i + 1) / 2);
+  byte index = j - i - 1; // -1 to make the hashing 0-indexed
+  return offset + index;
+}
+
+byte hashComplexByte(graph* g, int complexIndex) {
+  int assignmentsCount = 0;
+  boolean firstSet = FALSE;
+  byte A_i, A_j;
+  for (byte i = graphSize; i < graphSize + speciesCount; i++) { // for each species assignment
+    xword speciesWord = g[i];
+    if (bit[complexIndex] & speciesWord) {
+      assignmentsCount++;
+      if (!firstSet) {
+        A_i = i - graphSize;
+        firstSet = TRUE;
+      }
+      else A_j = i - graphSize;
+    }
+  }
+
+  int nodeIdx = MAXNN - complexIndex - 1;
+  if (assignmentsCount == 0)           return 0;
+  else if (assignmentsCount == 1){
+    if (colorMask[1] & bit[nodeIdx])   return (1 + A_i);
+    else                               return (speciesCount + 1 + A_i);
+  }
+  else    /* heterodimer */            return 2 * speciesCount + 1 + hashHeterodimerByte(A_i, A_j);
+}
+
+byte hashReactionByte(graph* g, int i, int j) {
+  byte C_1 = hashComplexByte(g, i);
+  byte C_2 = hashComplexByte(g, j);
+  return ((byte) maxComplexes) * C_1 + C_2;
+}
+
+// CRN reactions for N > 4 can be encoded in two bytes
+unsigned short int  hashHeterodimerShort(int i, int j) {
+  unsigned short int  offset = speciesCount - (i * (i + 1) / 2);
+  unsigned short int  index = j - i - 1;
+  return offset + index;
+}
+
+unsigned short int hashComplexShort(graph* g, int complexIndex) {
+  int assignmentsCount = 0;
+  boolean firstSet = FALSE;
+  unsigned short int A_i, A_j;
+  int nodeIdx = MAXNN - complexIndex - 1;
+  for (int i = graphSize; i < graphSize + speciesCount; i++) { // for each species assignment
+    xword speciesWord = g[i];
+    if (bit[complexIndex] & speciesWord) {
+      assignmentsCount++;
+      if (!firstSet) {
+        A_i = i - graphSize;
+        firstSet = TRUE;
+      }
+      else A_j = i - graphSize;
+    }
+  }
+
+  if (assignmentsCount == 0)         return 0;
+  else if (assignmentsCount == 1){
+    if (colorMask[1] & bit[nodeIdx]) return (1 + A_i);
+    else                             return (speciesCount + 1 + A_i);
+  }
+  else    /* heterodimer */          return 2 * speciesCount + 1 + hashHeterodimerShort(A_i, A_j);
+}
+
+unsigned short int hashReactionShort(graph* g, int i, int j) {
+  unsigned short int C_1 = hashComplexShort(g, i);
+  unsigned short int C_2 = hashComplexShort(g, j);
+  return ((unsigned short int) maxComplexes) * C_1 + C_2;
+}
+
+static void printByteEncoding(graph* g){
+  if (speciesCount <= 4){ // 1 byte encoding
+    for (int i = 0; i < graphSize; i++) {
+      xword w = g[i];
+      while (w) {
+        int j = XNEXTBIT(w);
+        w ^= xbit[j];
+        int node = MAXNN - j - 1;
+        if (node < graphSize) { // skip species nodes
+          byte x = hashReactionByte(g, i, node);
+          printf("%c", x);
+        }
+      }
+    }
+  }
+  else{ // 2 bytes encoding
+    for (int i = 0; i < graphSize; i++) {
+      xword w = g[i];
+      while (w) {
+        int j = XNEXTBIT(w);
+        w ^= xbit[j];
+        int node = MAXNN - j - 1;
+        if (node < graphSize) { // skip species nodes
+          short unsigned int x = hashReactionShort(g, i, node);
+          char c1 = x & 0xff;
+          char c2 = x >> 8 & 0xff ;
+          printf("%c%c", c2, c1);
+        }
+      }
+    }
+  }
+}
 
 static void printERODE(graph* g, int n, int spCount, int ne) {
   char** nodeNames = (char**)malloc(sizeof(char*) * graphSize);
@@ -1605,7 +1730,8 @@ void accept2(graph* g, int n) {
         || (massConservingSwitch && isMassConserving))
       {
         if (printCrnSwitch)
-          printCRN(g, n, speciesCount);
+          if(byteEncodingSwitch) printByteEncoding(g);
+          else printCRN(g, n, speciesCount);
         // printERODE(g, n, speciesCount, ne);
         counter++;
       }
@@ -2167,7 +2293,6 @@ colourdigraph(graph *g, int nfixed, long minedges, long maxedges,
     maxedges = n * numcols;
   if (n*numcols < minedges)
     return;
-  // CS: NOTE: commenting the options below preserves the information about orbits
   options.userautomproc = groupautomproc;
   options.userlevelproc = grouplevelproc;
   options.defaultptn = FALSE;
@@ -2278,6 +2403,7 @@ main(int argc, char *argv[])
     else SWBOOLEAN('z', noZeroNodeSwitch)         // do not include zero
     else SWBOOLEAN('t', nonTrivialSwitch)         // filter out trivial CRNs
     else SWBOOLEAN('m', massConservingSwitch)     // filter out non-mass conserving CRNs
+    else SWBOOLEAN('b', byteEncodingSwitch)       // print CRNs using byte encoding
     else SWBOOLEAN('T', Tswitch) // non-conservation law
     else SWINT('n', hasSpeciesCount, speciesCount, "gencrn -n")
     // else SWINT('m', hasMolecularity, molecularity, "gencrn -m")
@@ -2328,6 +2454,7 @@ main(int argc, char *argv[])
     if (nonTrivialSwitch) CATMSG0("t");
     if (nonConservationLawSwitch) CATMSG0("x");
     if (massConservingSwitch) CATMSG0("m");
+    if (byteEncodingSwitch) CATMSG0("b");
     if (fswitch) CATMSG1("f%d", nfixed);
     if (eswitch) CATMSG2("e%ld:%ld", minedges, maxedges);
     msglen = strlen(msg);
@@ -2379,13 +2506,21 @@ main(int argc, char *argv[])
   QueryPerformanceFrequency(&frequency);
   QueryPerformanceCounter(&start);
 #endif
+  boolean byteEncodingPrinted = FALSE;
   while (TRUE)
   {
     if ((g = readggcrn(infile, NULL, 0, &m, &n, &digraph, speciesCount)) == NULL) break;
     ++vc_nin;
 
     numcols = molecularity = 4; // molecularity;
-    int maxComplexes = complexesTotal(speciesCount, 2);
+    maxComplexes = complexesTotal(speciesCount, 2);
+    if (byteEncodingSwitch && byteEncodingPrinted == FALSE) {
+      int reactionsCount = 0;
+      for (int i=0; i<n;i++)
+        reactionsCount += XPOPCOUNT(g[i]);
+      printf("%i\n%i\n", speciesCount, reactionsCount);
+      byteEncodingPrinted = TRUE;
+    }
     if (noZeroNodeSwitch == TRUE) maxComplexes--;
     if (n <= maxComplexes) {
       maxn = n + (speciesCount);
@@ -2409,9 +2544,10 @@ main(int argc, char *argv[])
 #ifdef SUMMARY
   SUMMARY();
 #endif
-
-  printf("CRNs generated: %llu\n", counter);
-  printf("Time elapsed: %f seconds\n", interval);
+  if(!byteEncodingPrinted){
+    printf("CRNs generated: %llu\n", counter);
+    printf("Time elapsed: %f seconds\n", interval);
+  }
 
   exit(0);
 }
