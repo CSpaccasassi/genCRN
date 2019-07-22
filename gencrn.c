@@ -950,7 +950,7 @@ static void printDotGraph(graph* g, int n, int spCount, int* colorMask) {
 0                     & \text{if } C = \emptyset\\
 1+i                     & \text{if } C = A_i\\
 N+1+i                   & \text{if } C = 2A_i\\
-2N+1+\textup{hash}(i,j) & \text{if } C = A_i+ A_j, i < j, x = hash(i, j)\\
+2N+1+\textup{hash}(i,j) & \text{if } C = A_i+ A_j, i < j\\
 \end{cases}
 \\
 \\ \textup{hash}(i, j) = \Big(N i - \frac{i (i+1)}{2}\Big) + (j - i -1)
