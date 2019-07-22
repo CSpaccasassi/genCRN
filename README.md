@@ -170,7 +170,7 @@ Species \ Reactions |  1  |  2  |  3  |  4  |  5  |  6  |  7  |  8  |
 CRNs are printed by default in LBS format, which is human readable but not very efficient space-wise. To enable compact CRNs storage, `GenCRN` can encode CRN reactions in byte format using the `-b` flag. The encoding hashes a reaction to either a one byte integer, if the number of species is less than or equal to 4, or to two bytes. 
 
 
-Let N be the total number of species, m be the maximum number of complexes, and C be a complex. The hashing function for a reaction C1 -> C2 is the following:
+Let N be the total number of species, m be the maximum number of complexes, and C be a complex. The hash function to encode a reaction C1 -> C2 into an integer is the following:
 ```
 hash(C_1 -> C_2) = hash(C_1) * m + hash(C_2)
 hash(C) =  0                    if C = 0                    (naught)
