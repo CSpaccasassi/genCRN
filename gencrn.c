@@ -1303,11 +1303,11 @@ int countEdges(graph* g, int n) {
   return ne;
 }
 
-float** makeIncidenceMatrix(graph* g, int n, int ne) {
+double** makeIncidenceMatrix(graph* g, int n, int ne) {
   // init species-reactions matrix
-  float** matrix = (float**)malloc(speciesCount * sizeof(float*));
+  double** matrix = (double**)malloc(speciesCount * sizeof(double*));
   for (int i = 0; i < speciesCount; i++) {
-    matrix[i] = malloc(ne * sizeof(float));
+    matrix[i] = malloc(ne * sizeof(double));
   }
 
   for (int i = 0; i < speciesCount; i++) {
@@ -1327,14 +1327,14 @@ float** makeIncidenceMatrix(graph* g, int n, int ne) {
 
       for (int i = 0; i < speciesCount; i++) {
         if ((g[graphSize + i] & bit[source]) != 0) {
-          float k = 1;
+          double k = 1;
           if      ((xbit[source] & colorMask[0]) != 0) k = 0;
           else if ((xbit[source] & colorMask[2]) != 0) k = 2;
           matrix[i][j] = matrix[i][j] - k;
         }
 
         if ((g[graphSize + i] & xbit[target]) != 0) {
-          float k = 1;
+          double k = 1;
           int targe2 = bit[target];
           if      ((targe2 & colorMask[0]) != 0) k = 0;
           else if ((targe2 & colorMask[2]) != 0) k = 2;
@@ -1349,7 +1349,7 @@ float** makeIncidenceMatrix(graph* g, int n, int ne) {
   return matrix;
 }
 
-void freeIncidenceMatrix(float** matrix, int n) {
+void freeIncidenceMatrix(double** matrix, int n) {
   for (int i = 0; i < n; i++) {
     free(matrix[i]);
   }
@@ -1378,8 +1378,8 @@ booleann allProducedAndConsumed(int** matrix, int ne) {
   return (allProduced && allConsumed);
 }
 
-void flipRows(float** matrix, int r1, int r2, int m) {
-  float tmp;
+void flipRows(double** matrix, int r1, int r2, int m) {
+  double tmp;
   for (int i = 0; i < m; i++) {
     tmp = matrix[r1][i];
     matrix[r1][i] = matrix[r2][i];
@@ -1388,7 +1388,7 @@ void flipRows(float** matrix, int r1, int r2, int m) {
 }
 
 // Gauss-Jordan elimination, following the algorithm described here: http://people.math.carleton.ca/~kcheung/math/notes/MATH1107/wk04/04_gaussian_elimination.html
-void makeReducedRowEchelon(float** matrix, int m, int n) {
+void makeReducedRowEchelon(double** matrix, int m, int n) {
   int p = 0;
   for (int k = 0; k < n; k++) {
     for (int i = p; i < m; i++) {
@@ -1398,14 +1398,14 @@ void makeReducedRowEchelon(float** matrix, int m, int n) {
           flipRows(matrix, i, p, n);
         }
         // Scale
-        float a = matrix[p][k];
+        double a = matrix[p][k];
         for (int j = 0; j < n; j++) {
           matrix[p][j] = matrix[p][j] / a;
         }
         // Subtract
         for (int q = 0; q < m; q++) {
           if (q != p) {
-            float alpha = matrix[q][k];
+            double alpha = matrix[q][k];
             for (int r = 0; r < n; r++) {
               matrix[q][r] = matrix[q][r] - matrix[p][r] * alpha;
             }
@@ -1420,8 +1420,8 @@ void makeReducedRowEchelon(float** matrix, int m, int n) {
   }
     }
 
-float gcd(float a, float b) {
-  float temp;
+double gcd(double a, double b) {
+  double temp;
   while (b != 0) {
     temp = fmod(a, b);
 
@@ -1431,7 +1431,7 @@ float gcd(float a, float b) {
   return a;
 }
 
-float** makeFarkasArray(float** matrix, int m, int* matrixRowsDim, int* allocatedRowsCount) {
+double** makeFarkasArray(double** matrix, int m, int* matrixRowsDim, int* allocatedRowsCount) {
   int n = speciesCount;
 
   // extend the matrix by bufferSize rows at a time
@@ -1439,7 +1439,7 @@ float** makeFarkasArray(float** matrix, int m, int* matrixRowsDim, int* allocate
 
   // extend the incidence matrix with an n x n identity matrix
   for (int i = 0; i < *matrixRowsDim; i++) {
-    float* tmpPointer = realloc(matrix[i], (m + n) * sizeof(int));
+    double* tmpPointer = realloc(matrix[i], (m + n) * sizeof(int));
     if (tmpPointer == NULL)
       fprintf(ERRFILE, ">E realloc failed in Farkas algorithm\n");
     else
@@ -1460,20 +1460,20 @@ float** makeFarkasArray(float** matrix, int m, int* matrixRowsDim, int* allocate
 
     for (int j = 0; j < r; j++) {
       for (int k = j + 1; k < r; k++) {
-        float* d1 = matrix[j];
-        float* d2 = matrix[k];
+        double* d1 = matrix[j];
+        double* d2 = matrix[k];
 
         if ((d1[i] > 0 && d2[i] < 0) || (d1[i] < 0L && d2[i] > 0L)) {
           // extend the matrix 
           if (*matrixRowsDim == matrixBufferSize) { // allocate extra bufferSize rows in the matrix if required
             matrixBufferSize += bufferSize;
-            float** tmpPointer = (float**) realloc(matrix, (matrixBufferSize) * sizeof(float*));
+            double** tmpPointer = (double**) realloc(matrix, (matrixBufferSize) * sizeof(double*));
             if (tmpPointer == NULL)
               fprintf(ERRFILE, ">E realloc failed in Farkas algorithm\n");
             else {
               matrix = tmpPointer;
               for (int z = 0; z < bufferSize; z++) {
-                matrix[matrixBufferSize - bufferSize + z] = malloc((n + m) * sizeof(float));
+                matrix[matrixBufferSize - bufferSize + z] = malloc((n + m) * sizeof(double));
               }
             }
           }
@@ -1481,11 +1481,11 @@ float** makeFarkasArray(float** matrix, int m, int* matrixRowsDim, int* allocate
           // extend matrix size
           (*matrixRowsDim)++;
 
-          float d1a = fabs(d1[i]);
-          float d2a = fabs(d2[i]);
-          float g = -1;
+          double d1a = fabs(d1[i]);
+          double d2a = fabs(d2[i]);
+          double g = -1;
           for (int l = 0; l < m + n; l++) {
-            float dd = d2a * d1[l] + d1a * d2[l];
+            double dd = d2a * d1[l] + d1a * d2[l];
             matrix[*matrixRowsDim - 1][l] = dd;
             if (g == -1) g = dd;
             else g = gcd(g, dd);
@@ -1523,155 +1523,179 @@ float** makeFarkasArray(float** matrix, int m, int* matrixRowsDim, int* allocate
   return matrix;
 }
 
-booleann isNonTrivial(graph* g, int ne) {
-  float** matrix = makeIncidenceMatrix(g, speciesCount, ne);
-
-  //makeReducedRowEchelon(matrix, speciesCount, ne); // disabled due to numerical errors in the procedure
-
+// Quick Non-trivial test: Check if there is a positive vector in the stoichiometry matrix
+booleann isNonTrivialQuick(double** matrix, int numSpecies, int numReactions) {
   booleann res = TRUE;
+	for (int i = 0; i < numSpecies; i++) {
+		booleann allNegative = TRUE;
+		booleann allPositive = TRUE;
+		booleann allZero = TRUE;
+		for (int j = 0; j < numReactions; j++) {
+			if (matrix[i][j] < 0) {
+				allPositive = FALSE;
+				allZero = FALSE;
+			}
+			else if (matrix[i][j] > 0) {
+				allNegative = FALSE;
+				allZero = FALSE;
+			}
+		}
+		if ((allPositive == TRUE || allNegative == TRUE) && allZero != TRUE) {
+			res = FALSE;
+			break;
+		}
+	}
 
-  // quick test: check if there is a positive vector in the stoichiometry matrix
-  for (int i = 0; i < speciesCount; i++) {
-    booleann allNegative = TRUE;
-    booleann allPositive = TRUE;
-    booleann allZero = TRUE;
-    for (int j = 0; j < ne; j++) {
-      if (matrix[i][j] < 0) {
-        allPositive = FALSE;
-        allZero = FALSE;
-      }
-      else if (matrix[i][j] > 0) {
-        allNegative = FALSE;
-        allZero = FALSE;
-      }
-    }
-    if ((allPositive == TRUE || allNegative == TRUE) && allZero != TRUE) {
-      res = FALSE;
-      break;
-    }
-  }
+	return res;
+}
 
-  /* Application of the Fourier-Motzkin Elimination algorithm to the case (\Gamma^{T}x >= 0) with x \neq 0, where \Gamma is the stoichimetry matrix of the CRN.
+void printMatrix(double** matrix, int m, int n) {
+	for (int i = 0; i < m; i++) {
+		for (int j = 0; j < n; j++)
+			printf("%1.12f ", matrix[i][j]);
+		printf("\n");
+	}
+	printf("\n");
+}
+
+/* Application of the Fourier-Motzkin Elimination algorithm to the case (\Gamma^{T}x >= 0) with x \neq 0, where \Gamma is the stoichimetry matrix of the CRN.
      (note: the stoichimoetry matrix \Gamma is not transposed in the code, we just reverse apply FME on it with indices reversed) */
-  boolean solved = FALSE;
-  if (res != FALSE) {
-    int matrixSize = ne;
+booleann isNonTrivialFME(double** matrix, int numSpecies, int numReactions) {
+	
+	double tol = 1e-12;
 
-    int* pos = (int*)malloc(matrixSize * sizeof(int));
-    int* neg = (int*)malloc(matrixSize * sizeof(int));
-    boolean moreInequalitiesAdded = FALSE;
+	boolean solved = FALSE;
+  int matrixSize = numReactions;
 
-    for (int j = 0; j < speciesCount; j++) {
-      int psize = 0; int nsize = 0; // size of P and N
+  int* pos = (int*)malloc(matrixSize * sizeof(int));
+  int* neg = (int*)malloc(matrixSize * sizeof(int));
+  boolean moreInequalitiesAdded = FALSE;
 
-      // dynamically augment the set of positive and negative coefficient indices if more inequalities were created last time
-      if (moreInequalitiesAdded == TRUE) {
-        int* tmppos = (int*) realloc(pos, matrixSize * sizeof(int));
-        int* tmpneg = (int*) realloc(neg, matrixSize * sizeof(int));
+  for (int j = 0; j < numSpecies; j++) {
+    int psize = 0; int nsize = 0; // size of P and N
+
+		//printMatrix(matrix, numSpecies, matrixSize);
+
+    // dynamically augment the set of positive and negative coefficient indices if more inequalities were created last time
+    if (moreInequalitiesAdded == TRUE) {
+      int* tmppos = (int*) realloc(pos, matrixSize * sizeof(int));
+      int* tmpneg = (int*) realloc(neg, matrixSize * sizeof(int));
         
-        if (tmppos == NULL || (tmpneg == NULL))
-          fprintf(ERRFILE, ">E realloc failed in Fourier-Motzkin Elimination algorithm\n");
-        else {
-          pos = tmppos; 
-          neg = tmpneg;
-        }
-
-        moreInequalitiesAdded = FALSE;
+      if (tmppos == NULL || (tmpneg == NULL))
+        fprintf(ERRFILE, ">E realloc failed in Fourier-Motzkin Elimination algorithm\n");
+      else {
+        pos = tmppos; 
+        neg = tmpneg;
       }
 
-      boolean allCoefficientsAreZero = TRUE;
-      boolean allCoefficientsArePositive = TRUE;
-      boolean allCoefficientsAreNegative = TRUE;
-      // optimization: the following two booleans are used to detect if there are inequalities of the form 
-      // x_j >= 0 and -x_j >= 0    (i.e. single variable inequalities)
-      boolean someMonoCoefficientIsPositive = FALSE;
-      boolean someMonoCoefficientIsNegative = FALSE;
-      for (int i = 0; i < matrixSize; i++) {
-        if (matrix[j][i] == 0) continue;
-        else allCoefficientsAreZero = FALSE;
+      moreInequalitiesAdded = FALSE;
+    }
 
-        // check if all other coefficients are zero in the row
-        boolean onlyNonZeroCoefficient = TRUE;
-        for (int k = j + 1; k < speciesCount; k++) {
-          if (matrix[k][i] != 0) { onlyNonZeroCoefficient = FALSE; break; }
-        }
+    boolean allCoefficientsAreZero = TRUE;
+    boolean allCoefficientsArePositive = TRUE;
+    boolean allCoefficientsAreNegative = TRUE;
+    // optimization: the following two booleans are used to detect if there are inequalities of the form 
+    // x_j >= 0 and -x_j >= 0    (i.e. single variable inequalities)
+    boolean someMonoCoefficientIsPositive = FALSE;
+    boolean someMonoCoefficientIsNegative = FALSE;
+    for (int i = 0; i < matrixSize; i++) {
+      if (fabs(matrix[j][i]) < tol) continue;
+			//if (matrix[j][i] == 0.0) continue;
+      else allCoefficientsAreZero = FALSE;
 
-        // mark down all positive and negative coefficients
-        if (onlyNonZeroCoefficient == TRUE) {
-          if (matrix[j][i] > 0) {
-            allCoefficientsAreNegative = FALSE;
-            someMonoCoefficientIsPositive = TRUE;
-            pos[psize] = i; psize++;
-          }
-          else {
-            allCoefficientsArePositive = FALSE;
-            someMonoCoefficientIsNegative = TRUE;
-            neg[nsize] = i; nsize++;
-          }
+      // check if all other coefficients are zero in the row
+      boolean onlyNonZeroCoefficient = TRUE;
+      for (int k = j + 1; k < numSpecies; k++) {
+        if (fabs(matrix[k][i]) > tol) { onlyNonZeroCoefficient = FALSE; break; }
+				//if (matrix[k][i] != 0.0) { onlyNonZeroCoefficient = FALSE; break; }
+      }
+
+      // mark down all positive and negative coefficients
+      if (onlyNonZeroCoefficient == TRUE) {
+        if (matrix[j][i] > tol) {
+          allCoefficientsAreNegative = FALSE;
+          someMonoCoefficientIsPositive = TRUE;
+          pos[psize] = i; psize++;
         }
         else {
-          if (matrix[j][i] > 0) { pos[psize] = i; psize++; allCoefficientsAreNegative = FALSE; }
-          else                  { neg[nsize] = i; nsize++; allCoefficientsArePositive = FALSE; }
+          allCoefficientsArePositive = FALSE;
+          someMonoCoefficientIsNegative = TRUE;
+          neg[nsize] = i; nsize++;
         }
       }
-
-      // optimization: if x_j >= 0 and x_j <= 0, x_j must be 0
-      if (allCoefficientsAreZero == TRUE
-        || (someMonoCoefficientIsNegative == TRUE
-          && someMonoCoefficientIsPositive == TRUE)) continue; // assign 0 to this element of the vector
-
-      // found a positive vector in x_j, by putting x_j to 1 or -1 and all other coefficients x_i with i \neq j to 0
-      if ((allCoefficientsAreNegative || allCoefficientsArePositive)) {
-        solved = TRUE; break;
+      else {
+        if (matrix[j][i] > tol) { pos[psize] = i; psize++; allCoefficientsAreNegative = FALSE; }
+        else                    { neg[nsize] = i; nsize++; allCoefficientsArePositive = FALSE; }
       }
+    }
 
-      if ((psize != 0 || nsize != 0)) {
-        if (psize == 0) {       continue; }
-        else if (nsize == 0) {  continue; }
-        else {                                                
-          // Simplify x_j and create new inequalities, as per FME
-          moreInequalitiesAdded = TRUE;
+    // optimization: if x_j >= 0 and x_j <= 0, x_j must be 0
+    if (allCoefficientsAreZero == TRUE
+      || (someMonoCoefficientIsNegative == TRUE
+        && someMonoCoefficientIsPositive == TRUE)) continue; // assign 0 to this element of the vector
+
+    // found a positive vector in x_j, by putting x_j to 1 or -1 and all other coefficients x_i with i \neq j to 0
+    if ((allCoefficientsAreNegative || allCoefficientsArePositive)) {
+      solved = TRUE; break;
+    }
+
+    if ((psize != 0 || nsize != 0)) {
+      if (psize == 0) {       continue; }
+      else if (nsize == 0) {  continue; }
+      else {                                                
+        // Simplify x_j and create new inequalities, as per FME
+        moreInequalitiesAdded = TRUE;
           
-          // allocate more space for the new equations
-          int newEquationsSize = matrixSize + (psize * nsize);
-          for (int k = 0; k < speciesCount; k++) {
-            float* tmpPointer = realloc(matrix[k], sizeof(float) * (newEquationsSize));
-            if (tmpPointer == NULL)
-              fprintf(ERRFILE, ">E realloc failed in Fourier-Motzkin Elimination algorithm\n");
-            else
-              matrix[k] = tmpPointer;
-          }
+        // allocate more space for the new equations
+        int newEquationsSize = matrixSize + (psize * nsize);
+        for (int k = 0; k < numSpecies; k++) {
+          double* tmpPointer = realloc(matrix[k], sizeof(double) * (newEquationsSize));
+          if (tmpPointer == NULL)
+            fprintf(ERRFILE, ">E realloc failed in Fourier-Motzkin Elimination algorithm\n");
+          else
+            matrix[k] = tmpPointer;
+        }
 
-          // create new inequalities
-          for (int pi = 0; pi < psize; pi++) {
-            for (int ni = 0; ni < nsize; ni++) {
-              int newColIndex = matrixSize + (pi*nsize) + ni;
-              for (int row = j + 1; row < speciesCount; row++) {
-                float pelem = matrix[row][pos[pi]] / fabs(matrix[j][pos[pi]]);
-                float nelem = matrix[row][neg[ni]] / fabs(matrix[j][neg[ni]]);
-                float diff = pelem + nelem;
-                matrix[row][newColIndex] = diff;
-              }
+        // create new inequalities
+        for (int pi = 0; pi < psize; pi++) {
+          for (int ni = 0; ni < nsize; ni++) {
+            int newColIndex = matrixSize + (pi*nsize) + ni;
+            for (int row = j + 1; row < numSpecies; row++) {
+              double pelem = matrix[row][pos[pi]] / fabs(matrix[j][pos[pi]]);
+              double nelem = matrix[row][neg[ni]] / fabs(matrix[j][neg[ni]]);
+              double diff = pelem + nelem;
+              matrix[row][newColIndex] = diff;
             }
           }
-
-          for (int k = j + 1; k < speciesCount; k++) {
-            for (int pi = 0; pi < psize; pi++) matrix[k][pos[pi]] = 0;
-            for (int ni = 0; ni < nsize; ni++) matrix[k][neg[ni]] = 0;
-          }
-          matrixSize = newEquationsSize;
         }
+
+        for (int k = j + 1; k < numSpecies; k++) {
+          for (int pi = 0; pi < psize; pi++) matrix[k][pos[pi]] = 0;
+          for (int ni = 0; ni < nsize; ni++) matrix[k][neg[ni]] = 0;
+        }
+        matrixSize = newEquationsSize;
       }
     }
-
-    free(pos);
-    free(neg);
-
-    res = (solved == FALSE);
   }
-  freeIncidenceMatrix(matrix, speciesCount);
 
-  return res;
+  free(pos);
+  free(neg);
+
+  return (solved == FALSE);
+}
+
+booleann isNonTrivial(graph* g, int ne) {
+	double** matrix = makeIncidenceMatrix(g, speciesCount, ne);
+
+	//makeReducedRowEchelon(matrix, speciesCount, ne); // disabled due to numerical errors in the procedure
+
+	booleann res = isNonTrivialQuick(matrix, speciesCount, ne);
+	if (res != FALSE) {
+		res = isNonTrivialFME(matrix, speciesCount, ne);
+	}
+	freeIncidenceMatrix(matrix, speciesCount);
+
+	return res;
 }
 
 void accept2(graph* g, int n) {
@@ -1685,7 +1709,7 @@ void accept2(graph* g, int n) {
     if (counter >= 37462) { nonTrivialSwitch = TRUE; }
 
     if (nonTrivialSwitch == TRUE) {
-      nonTrivial = isNonTrivial(g, ne);
+			nonTrivial = isNonTrivial(g, ne);
     }
     if (nonTrivial == TRUE)
     {
@@ -1693,7 +1717,7 @@ void accept2(graph* g, int n) {
       booleann isNotConserving  = TRUE;
       booleann isMassConserving = TRUE;
       if (conservationLawSwitch == TRUE || nonConservationLawSwitch == TRUE || massConservingSwitch == TRUE) {
-        float** matrix = makeIncidenceMatrix(g, n, ne);
+        double** matrix = makeIncidenceMatrix(g, n, ne);
 
         // compute Farkas array
         int matrixRowsDim = speciesCount;
@@ -2349,7 +2373,7 @@ colourdigraph(graph *g, int nfixed, long minedges, long maxedges,
 
 /**************************************************************************/
 int
-main(int argc, char *argv[])
+mainMethod(int argc, char *argv[])
 {
 #ifdef _WIN32
   LARGE_INTEGER frequency;
@@ -2550,4 +2574,247 @@ main(int argc, char *argv[])
   }
 
   exit(0);
+}
+
+// Non-trivial dynamics tests
+void testTrivial1() {
+	// A->B+C | ->B+C
+	int numSpecies = 3;
+	int numReactions = 2;
+	double** matrix = (double**)malloc(numSpecies * sizeof(double*));
+	for (int i = 0; i < numSpecies; i++) {
+		matrix[i] = malloc(numReactions * sizeof(double));
+	}
+
+	matrix[0][0] = -1.0;
+	matrix[0][1] = 0.0;
+	matrix[1][0] = 1.0;
+	matrix[1][1] = 1.0;
+	matrix[2][0] = 1.0;
+	matrix[2][1] = 1.0;
+
+	if (isNonTrivialFME(matrix, numSpecies, numReactions) == TRUE)
+		printf("Test error: Trivial1 returned non-trivial in FME\n");
+}
+
+void testTrivial2() {
+	// A + B -> | 2B -> A + C | 2A -> B + C | C -> B
+	int numSpecies = 3;
+	int numReactions = 4;
+	double** matrix = (double**)malloc(numSpecies * sizeof(double*));
+	for (int i = 0; i < numSpecies; i++) {
+		matrix[i] = malloc(numReactions * sizeof(double));
+	}
+
+	matrix[0][0] = -1.0;
+	matrix[0][1] = 1.0;
+	matrix[0][2] = -2.0;
+	matrix[0][3] = 0.0;
+	matrix[1][0] = -1.0;
+	matrix[1][1] = -2.0;
+	matrix[1][2] = 1.0;
+	matrix[1][3] = 1.0;
+	matrix[2][0] = 0.0;
+	matrix[2][1] = 1.0;
+	matrix[2][2] = 1.0;
+	matrix[2][3] = -1.0;
+
+	if (isNonTrivialFME(matrix, numSpecies, numReactions) == TRUE)
+		printf("Test error: Trivial2 returned non-trivial in FME\n");
+}
+
+void testNontrivial1() {
+	// A+B -> A+C | 2C -> B+C
+	int numSpecies = 3;
+	int numReactions = 2;
+	double** matrix = (double**)malloc(numSpecies * sizeof(double*));
+	for (int i = 0; i < numSpecies; i++) {
+		matrix[i] = malloc(numReactions * sizeof(double));
+	}
+
+	matrix[0][0] = 0.0;
+	matrix[0][1] = 0.0;
+	matrix[1][0] = -1.0;
+	matrix[1][1] = 1.0;
+	matrix[2][0] = 1.0;
+	matrix[2][1] = -1.0;
+
+	if (isNonTrivialFME(matrix, numSpecies, numReactions) == FALSE)
+		printf("Test error: NonTrivial1 returned trivial in FME\n");
+}
+
+void testNontrivial2() {
+	// A -> B+C | -> B+C | B+C -> A | B+C -> 
+	int numSpecies = 3;
+	int numReactions = 4;
+	double** matrix = (double**)malloc(numSpecies * sizeof(double*));
+	for (int i = 0; i < numSpecies; i++) {
+		matrix[i] = malloc(numReactions * sizeof(double));
+	}
+
+	matrix[0][0] = -1.0;
+	matrix[0][1] = 0.0;
+	matrix[0][2] = 1.0;
+	matrix[0][3] = 0.0;
+	matrix[1][0] = 1.0;
+	matrix[1][1] = 1.0;
+	matrix[1][2] = -1.0;
+	matrix[1][3] = -1.0;
+	matrix[2][0] = 1.0;
+	matrix[2][1] = 1.0;
+	matrix[2][2] = -1.0;
+	matrix[2][3] = -1.0;
+
+	if (isNonTrivialFME(matrix, numSpecies, numReactions) == FALSE)
+		printf("Test error: NonTrivial2 returned trivial in FME\n");
+}
+
+void testNontrivial3() {
+	// 2A->B+C | A+C->B+D | B+F->D+F | D+E->A+E
+	int numSpecies = 6;
+	int numReactions = 4;
+	double** matrix = (double**)malloc(numSpecies * sizeof(double*));
+	for (int i = 0; i < numSpecies; i++) {
+		matrix[i] = malloc(numReactions * sizeof(double));
+	}
+
+	matrix[0][0] = -2.0;
+	matrix[0][1] = -1.0;
+	matrix[0][2] = 0.0;
+	matrix[0][3] = 1.0;
+
+	matrix[1][0] = 1.0;
+	matrix[1][1] = 1.0;
+	matrix[1][2] = -1.0;
+	matrix[1][3] = 0.0;
+
+	matrix[2][0] = 1.0;
+	matrix[2][1] = -1.0;
+	matrix[2][2] = 0.0;
+	matrix[2][3] = 0.0;
+
+	matrix[3][0] = 0.0;
+	matrix[3][1] = 1.0;
+	matrix[3][2] = 1.0;
+	matrix[3][3] = -1.0;
+
+	matrix[4][0] = 0.0;
+	matrix[4][1] = 0.0;
+	matrix[4][2] = 0.0;
+	matrix[4][3] = 0.0;
+
+	matrix[5][0] = 0.0;
+	matrix[5][1] = 0.0;
+	matrix[5][2] = 0.0;
+	matrix[5][3] = 0.0;
+
+	if (isNonTrivialFME(matrix, numSpecies, numReactions) == FALSE)
+		printf("Test error: NonTrivial3 returned trivial in FME\n");
+}
+
+void testNontrivial3_Hand() {
+	// D+E->A+E | B+F->D+F | A+C->B+D | 2A->B+C
+	int numSpecies = 6;
+	int numReactions = 4;
+	double** matrix = (double**)malloc(numSpecies * sizeof(double*));
+	for (int i = 0; i < numSpecies; i++) {
+		matrix[i] = malloc(numReactions * sizeof(double));
+	}
+
+	// E
+	matrix[0][0] = 0.0;
+	matrix[0][1] = 0.0;
+	matrix[0][2] = 0.0;
+	matrix[0][3] = 0.0;
+
+	// F
+	matrix[1][0] = 0.0;
+	matrix[1][1] = 0.0;
+	matrix[1][2] = 0.0;
+	matrix[1][3] = 0.0;
+
+	// C
+	matrix[2][0] = 0.0;
+	matrix[2][1] = 0.0;
+	matrix[2][2] = -1.0;
+	matrix[2][3] = 1.0;
+
+	// A
+	matrix[3][0] = 1.0;
+	matrix[3][1] = 0.0;
+	matrix[3][2] = -1.0;
+	matrix[3][3] = -2.0;
+
+	// D
+	matrix[4][0] = -1.0;
+	matrix[4][1] = 1.0;
+	matrix[4][2] = 1.0;
+	matrix[4][3] = 0.0;
+
+	// B
+	matrix[5][0] = 0.0;
+	matrix[5][1] = -1.0;
+	matrix[5][2] = 1.0;
+	matrix[5][3] = 1.0;
+
+	if (isNonTrivialFME(matrix, numSpecies, numReactions) == FALSE)
+		printf("Test error: NonTrivial3_Hand returned trivial in FME\n");
+}
+
+void testNontrivial4() {
+	// C+E->2A | A+E->B+C | B+F->E+F | C+D->B+D
+	int numSpecies = 6;
+	int numReactions = 4;
+	double** matrix = (double**)malloc(numSpecies * sizeof(double*));
+	for (int i = 0; i < numSpecies; i++) {
+		matrix[i] = malloc(numReactions * sizeof(double));
+	}
+
+	matrix[0][0] = -1.0;
+	matrix[0][1] = 1.0;
+	matrix[0][2] = 0.0;
+	matrix[0][3] = -1.0;
+
+	matrix[1][0] = -1.0;
+	matrix[1][1] = -1.0;
+	matrix[1][2] = 1.0;
+	matrix[1][3] = 0.0;
+	
+	matrix[2][0] = 2.0;
+	matrix[2][1] = -1.0;
+	matrix[2][2] = 0.0;
+	matrix[2][3] = 0.0;
+
+	matrix[3][0] = 0.0;
+	matrix[3][1] = 1.0;
+	matrix[3][2] = -1.0;
+	matrix[3][3] = 1.0;
+
+	matrix[4][0] = 0.0;
+	matrix[4][1] = 0.0;
+	matrix[4][2] = 0.0;
+	matrix[4][3] = 0.0;
+
+	matrix[5][0] = 0.0;
+	matrix[5][1] = 0.0;
+	matrix[5][2] = 0.0;
+	matrix[5][3] = 0.0;
+
+	if (isNonTrivialFME(matrix, numSpecies, numReactions) == FALSE)
+		printf("Test error: NonTrivial4 returned trivial in FME\n");
+}
+
+
+/**************************************************************************/
+int main(int argc, char *argv[]) {
+
+	/*testTrivial1();
+	testTrivial2();
+	testNontrivial1();
+	testNontrivial2();
+	testNontrivial3();
+	testNontrivial4();
+	testNontrivial3_Hand();*/
+	
+	return mainMethod(argc, argv);
 }

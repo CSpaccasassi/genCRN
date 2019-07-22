@@ -20,6 +20,17 @@ N.B. Make sure that the build configuration in Visual Studio is set on  "Release
 ## Binaries
 To get started with genCRN without compiling the code, you can use pre-built executables (for Windows or Unix), which are in the dist folder.
 
+## Citation
+If you use this code or build upon it, please use the following (bibtex) citation:
+```bibtex
+@InProceedings{
+	title = "Fast enumeration of non-isomorphic chemical reaction networks",
+	author = "Carlo Spaccasassi and Boyan Yordanov and Andrew Phillips and Neil Dalchau",
+	booktitle = "Computational Methods in Systems Biology (CMSB 2019)",
+	year = "2019"
+}
+```
+
 ## Usage
 CRNs are generated in two steps. First, non-isomorphic input graphs for genCRN are produced using `geng` and `directg` in NAUTY. Then, these input graphs are passed to genCRN to produce non-isomorphic CRNs using the *Complex-Species Graph* encoding.
 
@@ -107,3 +118,50 @@ Next, we can run 65 instances of `genCRN` as follows:
 `for i in `ls crn_5_6_part*`; do (time ../GenCRN.exe -q -n5 $i > result_$i) & done`
 
 Each instance of `genCRN` creates a file called `result_crn_5_6_i`, where `i` ranges from 0 to 64, and populates it with CRN counts when the enumeration is finished. To check if the enumeration is still running, a useful command is `ps aux | grep genCRN`.
+
+## Counts
+
+The following tables show the counts for the number of *genuine* non-isomorphic CRNs (those that include all *n* species), the number of genuine non-isomorphic reversible CRNs, and the number of genuine non-isomorphic non-trivial CRNs. These counts now go beyond what is reported in our CMSB paper. 
+
+#### Non-isomorphic CRNs
+
+Species \ Reactions |  1  |  2  |  3  |  4  |  5  |  6  |  7  |
+-------------------:| ---:| ---:| ---:| ---:| ---:| ---:| ---:|
+**1** | 6 | 15 | 20 | 15 | 6 | 1 | 0 |
+**2** | 10 | 210 | 2,024 | 13,740 | 71,338 | 297,114 | 1,018,264 |
+**3** | 5 | 495 | 17,890 | 414,015 | 7,262,666 | 103,511,272 | 1,244,363,180 |
+**4** | 1 | 451 | 47,323 | 2,900,934 | 128,328,834 | 4,518,901,463 | 133,379,120,523 |
+**5** | 0 | 204 | 55,682 | 7,894,798 | 763,695,711 | 56,929,248,832 |
+**6** | 0 | 54 | 35,678 | 10,704,289 | 2,069,783,947 |
+**7** | 0 | 8 | 13,964 | 8,386,321 | 3,041,467,242 |
+**8** | 0 | 1 | 3,594 | 4,182,295 | 2,715,774,734 |
+**9** | 0 | 0 | 639 | 1,417,784 | 1,595,551,325 |
+**10** | 0 | 0 | 83 | 618,885 | 653,346,685 |
+
+#### Filtering reversible CRNs
+
+Species \ Reactions |  1  |  2  |  3  |  4  |  5  |  6  |  7  |  8  |
+-------------------:| ---:| ---:| ---:| ---:| ---:| ---:| ---:| ---:|
+**1** | 3 | 6 | 7 | 4 | 4 | 1 | 1 | 0 |
+**2** | 6 | 60 | 296 | 989 | 2,516 | 4,997 | 8,241 | 11,271 |
+**3** | 3 | 138 | 4,788 | 26,988 | 230,595 | 1,589,808 | 9,161,056 | 45,107,712 |
+**4** | 1 | 134 | 6,354 | 187,005 | 4,048,219 | 69,982,180 | 1,011,965,511 |
+**5** | 0 | 65 | 7,677 | 513,036 | 24,186,053 | 888,323,405 |
+**6** | 0 | 21 | 5,178 | 709,212 | 66,152,034 | 4,674,311,477 |
+**7** | 0 | 4 | 2,188 | 572,058 | 98,576,689 |
+**8** | 0 | 1 | 648 | 298,030 | 89,754,652 |
+
+#### Filtering non-trivial CRNs (-t)
+
+Species \ Reactions |  1  |  2  |  3  |  4  |  5  |  6  |  7  |  8  |
+-------------------:| ---:| ---:| ---:| ---:| ---:| ---:| ---:| ---:|
+**1** | 0 |  9 |  18 |     15 |         6 |           1 |              0 |             0 |
+**2** | 0 | 19 | 304 |  5,016 |    41,500 |     221,728 |        871,330 |     2,700,277 |
+**3** | 0 |  8 | 464 | 25,272 | 1,125,465 |  30,806,874 |    563,453,020 | 7,675,100,687 |
+**4** | 0 |  2 | 223 | 28,052 | 3,279,132 | 321,921,288 | 20,669,624,467 |
+**5** | 0 |  0 |  41 | 12,340 | 2,845,389 | 633,623,890 |
+**6** | 0 |  0 |   5 |  2,606 | 1,127,294 |
+**7** | 0 |  0 |   0 |    264 |   238,105 |
+**8** | 0 |  0 |   0 |     17 |    28,191 |
+**9** | 0 |  0 |   0 |      0 |     1,795 |
+**10**| 0 |  0 |   0 |      0 |        60 |
