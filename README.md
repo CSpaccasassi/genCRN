@@ -165,3 +165,20 @@ Species \ Reactions |  1  |  2  |  3  |  4  |  5  |  6  |  7  |  8  |
 **8** | 0 |  0 |   0 |     17 |    28,191 |
 **9** | 0 |  0 |   0 |      0 |     1,795 |
 **10**| 0 |  0 |   0 |      0 |        60 |
+
+## CRN binary encoding (-b)
+CRNs are printed by default in LBS format, which is human readable but not very efficient space-wise. To enable compact CRNs storage, `GenCRN` can encode CRN reactions in byte format using the `-b` flag. The encoding hashes a reaction to either a one byte integer, if the number of species is less than or equal to 4, or to two bytes. 
+
+
+Let N be the total number of species, m be the maximum number of complexes, and C be a complex. The hashing function for a reaction C1 -> C2 is the following:
+```
+hash(C_1 -> C_2) = hash(C_1) * m + hash(C_2)
+hash(C) =  0                    if C = 0                    (naught)
+	|  1+i                  if C = Ai                   (monomer)
+        |  N+1+i                if C = 2Ai                  (monodimer)
+	|  2N + 1 + hash(i,j)   if C = Ai + Aj and i < j    (heterodimer)
+hash(i, j) = (N * i - i * (i+1)/ 2) + (j - i - 1)
+```
+(*Ai* stands for the *i*th species, where *i* is an index from  0 to N-1)
+
+The reason why CRNs with up to 4 species can be represented in a single byte is the following. The total number of complexes in a bimolecular CRN with N species is (N+2)-choose-2, which in the case of 4 species is 15. A reaction can be considered as a pair of (not ) complexes, therefore there are 15 * 14 = 210 possible reactions in a 4 species CRN, which fits into a single byte (up to 255). 
