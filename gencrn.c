@@ -1439,7 +1439,7 @@ double** makeFarkasArray(double** matrix, int m, int* matrixRowsDim, int* alloca
 
   // extend the incidence matrix with an n x n identity matrix
   for (int i = 0; i < *matrixRowsDim; i++) {
-    double* tmpPointer = realloc(matrix[i], (m + n) * sizeof(int));
+    double* tmpPointer = realloc(matrix[i], (m + n) * sizeof(double));
     if (tmpPointer == NULL)
       fprintf(ERRFILE, ">E realloc failed in Farkas algorithm\n");
     else
