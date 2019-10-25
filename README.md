@@ -83,7 +83,7 @@ Below is a table showing all possible flags, and examples of using them.
 | -l    | Only produce CRNs with at least a conservation law |
 | -x    | Only produce CRNs with no conservation laws |
 | -q    | Only count the number of CRNs |
-| -s#   | Assign special classes to species. |
+| -s#   | Assign special classes to species |
 
 #### Examples
 Count the number of non-isomorphic CRNs with 3 species and 3 reactions:
