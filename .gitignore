@@ -7,16 +7,19 @@
 *.log
 *.asv
 .vs
-*/Debug
-*/Release
-vs/x64
-/vs/genCRNTest/obj
-/vs/genCRNTest/bin
-/vs/geng/x64/Release
-/vs/directg/x64/Release
-/vs/genInputGraphs/x64/Release
-/vs/genCRN/x64
 *.user
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
 
 # NuGet Packages
 *.nupkg
@@ -29,3 +32,7 @@ vs/x64
 # NuGet v3's project.json files produces more ignorable files
 *.nuget.props
 *.nuget.targets
+
+# Test files
+vs/test/actual*
+vs/test/expected*

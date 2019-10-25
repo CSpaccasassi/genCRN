@@ -11,7 +11,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "geng", "geng\geng.vcxproj",
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "directg", "directg\directg.vcxproj", "{2A4B1357-C14B-46BB-B221-C040B586BFFC}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "genCRNTest", "genCRNTest\genCRNTest.fsproj", "{01A8747B-51B0-4205-8C7D-C4C5B996998B}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TestGenCRN", "TestGenCRN\TestGenCRN.fsproj", "{01A8747B-51B0-4205-8C7D-C4C5B996998B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
