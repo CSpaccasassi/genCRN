@@ -1,6 +1,5 @@
-﻿open System.Collections.Generic
-open System.IO
-open System
+﻿open System
+open System.Collections.Generic
 
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -98,171 +97,184 @@ let rec pairs l =
         yield! t |> pairs
     | _ -> () ]
 
+let renameCRN (rxns : (Mset<string> * Mset<string>) list) (sub : Map<string, string>) : (Mset<string> * Mset<string>) list = 
+  let f x = sub.[x]
+  let g = Mset_map f >> List.sort
+  rxns
+  |> List.map (fun (r, p) -> g r, g p)
+  |> List.sort
     
-let testClass classes expectedPath actualPath =
-  let maxSpecies = List.sum classes
-  if maxSpecies > 26 
-    then failwith "Unsupported total number of species (max 26 species)"
-    else 
-      let renameCRN (rxns : (Mset<string> * Mset<string>) list) (sub : Map<string, string>) : (Mset<string> * Mset<string>) list = 
-        let f x = sub.[x]
-        let g = Mset_map f >> List.sort
-        rxns
-        |> List.map (fun (r, p) -> g r, g p)
-        |> List.sort
+(** generate n-species permutations **)
+let rec distribute e = function
+  | [] -> [[e]]
+  | x::xs' as xs -> (e::xs)::[for xs in distribute e xs' -> x::xs]
 
-      (** generate n-species permutations **)
-      let rec distribute e = function
-        | [] -> [[e]]
-        | x::xs' as xs -> (e::xs)::[for xs in distribute e xs' -> x::xs]
+let rec do_permute = function
+  | [] -> [[]]
+  | e::xs -> List.collect (distribute e) (do_permute xs)
 
-      let rec do_permute = function
-        | [] -> [[]]
-        | e::xs -> List.collect (distribute e) (do_permute xs)
-
-      let permute n = alphabet.[0..n-1] 
-                      |> List.ofArray 
-                      |> do_permute
+let permute n = alphabet.[0..n-1] 
+                |> List.ofArray 
+                |> do_permute
       
-      let makeSubs n = permute n
-                       |> List.map (List.mapi (fun i x -> alphabet.[i], x))
-                       |> List.map Map.ofList
+let makeSubs n = permute n
+                  |> List.map (List.mapi (fun i x -> alphabet.[i], x))
+                  |> List.map Map.ofList
 
-      let rec makeClassPermutations acc = function
-      | [] -> [[]]
-      | x :: xs -> [acc .. acc + x - 1]
-                   |> do_permute 
-                   |> List.map (List.mapi (fun i x -> alphabet.[acc+i], alphabet.[x]))
-                   |> fun p -> let p'= makeClassPermutations (acc + x) xs
-                               List.allPairs p p'
-                               |> List.map (fun (x,y) -> x @ y)
+let rec makeClassPermutations acc = function
+| [] -> [[]]
+| x :: xs -> [acc .. acc + x - 1]
+              |> do_permute 
+              |> List.map (List.mapi (fun i x -> alphabet.[acc+i], alphabet.[x]))
+              |> fun p -> let p'= makeClassPermutations (acc + x) xs
+                          List.allPairs p p'
+                          |> List.map (fun (x,y) -> x @ y)
                    
-      let makeClassSubs classes = makeClassPermutations 0 classes |> List.map Map.ofList
+let makeClassSubs classes = makeClassPermutations 0 classes |> List.map Map.ofList
 
-      let print (r, p) = sprintf "%s->%s" (to_string id "+" r |> fun x -> if x = "" then "0" else x) 
-                                          (to_string id "+" p |> fun x -> if x = "" then "0" else x)
-      let printCRN crn = crn 
-                         |> List.map print
-                         |> String.concat " | "
-      
-      (** load a bimolecular CRN file in LBS format **)
-      // We use F#'s active patterns, from: https://stackoverflow.com/questions/3722591/pattern-matching-on-the-beginning-of-a-string-in-f
-      let (|Prefix|_|) (p:string) (s:string) =
-        if s.StartsWith(p) then
-            Some(s.Substring(p.Length))
-        else
-            None
+// Printing methods
+let print (r, p) = sprintf "%s->%s" (to_string id "+" r |> fun x -> if x = "" then "0" else x) 
+                                    (to_string id "+" p |> fun x -> if x = "" then "0" else x)
+let printCRN crn = crn 
+                    |> List.map print
+                    |> String.concat " | "
 
-      let loadCRNFile filePath =
-        let text = System.IO.File.ReadAllLines filePath
-        let parseComplex (x:string) =
-          match x with 
-          | ""                   -> msetNaught, ""
-          | Prefix "->" complex2 -> msetNaught, complex2
-          | Prefix "2" sp1AndRest -> 
-            let sp1 = sp1AndRest.[0] |> Char.ToString 
-            match sp1AndRest.Substring(1) with 
-            | ""                   -> msetHomodimer sp1, ""
-            | Prefix "->" complex2 -> msetHomodimer sp1, complex2
-            | _ -> failwithf "Parsing failed at: %s" x
-          | _               -> 
-            let sp1     = x.[0] |> Char.ToString
-            match x.Substring(1) with 
-            | ""                   -> msetHomomer sp1, ""
-            | Prefix "->" complex2 -> msetHomomer sp1, complex2
-            | Prefix "+"  sp2AndRest -> 
-              let sp2 = sp2AndRest.[0] |> Char.ToString
-              match sp2AndRest.Substring(1) with 
-              | ""                   -> msetHeterodimer sp1 sp2, ""
-              | Prefix "->" complex2 -> msetHeterodimer sp1 sp2, complex2
-              | _ -> failwithf "Parsing failed at: %s" x
-            | _   -> failwithf "Parsing failed at: %s" x
-        let parseLine (x:string) =
-          match x with 
-          | Prefix "--" _ -> None
-          | Prefix "|" reaction -> 
-            let c1, rest = parseComplex reaction
-            let c2, _    = parseComplex rest
-            Some (c1, c2)
-          | Prefix "CRNs generated" _ -> None
-          | Prefix "Time elapsed" _ -> None
-          | _   -> failwithf "Parsing failed at: %s" x
-        text 
-        |> Array.fold (fun (reactionsAcc, crnsAcc) line ->
-              match parseLine line with 
-              | None   -> ([], if not reactionsAcc.IsEmpty 
-                                then reactionsAcc :: crnsAcc
-                                else crnsAcc)
-              | Some r -> (r::reactionsAcc, crnsAcc)) 
-            ([], [])
-        |> snd 
-        |> List.rev
+(** load a bimolecular CRN file in LBS format **)
+// We use F#'s active patterns, from: https://stackoverflow.com/questions/3722591/pattern-matching-on-the-beginning-of-a-string-in-f
+let (|Prefix|_|) (p:string) (s:string) =
+  if s.StartsWith(p) then
+      Some(s.Substring(p.Length))
+  else
+      None
 
-      (** load test data**)
-      // compute expected CRNs with diffusibles from non-isomorphic CRNs 
-      let subs = makeSubs (List.sum classes)
-      let classSubs = makeClassSubs classes
-      let loadedCRNs = loadCRNFile expectedPath 
-      let expectedCRNs = 
-        loadedCRNs 
-        |> List.map List.sort
-        |> List.collect (fun crn ->
-            // expand CRN into all its permutations
-            subs 
-            |> List.map (renameCRN crn)
+let loadCRNFile filePath =
+  let text = System.IO.File.ReadAllLines filePath
+  let parseComplex (x:string) =
+    match x with 
+    | ""                   -> msetNaught, ""
+    | Prefix "->" complex2 -> msetNaught, complex2
+    | Prefix "2" sp1AndRest -> 
+      let sp1 = sp1AndRest.[0] |> Char.ToString 
+      match sp1AndRest.Substring(1) with 
+      | ""                   -> msetHomodimer sp1, ""
+      | Prefix "->" complex2 -> msetHomodimer sp1, complex2
+      | _ -> failwithf "Parsing failed at: %s" x
+    | _               -> 
+      let sp1     = x.[0] |> Char.ToString
+      match x.Substring(1) with 
+      | ""                   -> msetHomomer sp1, ""
+      | Prefix "->" complex2 -> msetHomomer sp1, complex2
+      | Prefix "+"  sp2AndRest -> 
+        let sp2 = sp2AndRest.[0] |> Char.ToString
+        match sp2AndRest.Substring(1) with 
+        | ""                   -> msetHeterodimer sp1 sp2, ""
+        | Prefix "->" complex2 -> msetHeterodimer sp1 sp2, complex2
+        | _ -> failwithf "Parsing failed at: %s" x
+      | _   -> failwithf "Parsing failed at: %s" x
+  let parseLine (x:string) =
+    match x with 
+    | Prefix "--" _ -> None
+    | Prefix "|" reaction -> 
+      let c1, rest = parseComplex reaction
+      let c2, _    = parseComplex rest
+      Some (c1, c2)
+    | Prefix "CRNs generated" _ -> None
+    | Prefix "Time elapsed" _ -> None
+    | _   -> failwithf "Parsing failed at: %s" x
+  text 
+  |> Array.fold (fun (reactionsAcc, crnsAcc) line ->
+        match parseLine line with 
+        | None   -> ([], if not reactionsAcc.IsEmpty 
+                          then reactionsAcc :: crnsAcc
+                          else crnsAcc)
+        | Some r -> (r::reactionsAcc, crnsAcc)) 
+      ([], [])
+  |> snd 
+  |> List.rev
+
+let testClass classes expectedPath actualPath =
+  classes |> List.map (sprintf "%d") |> String.concat ";" |> printfn "Testing species classes [%s]" 
+  let maxSpecies = List.sum classes
+  if maxSpecies > 26 then failwith "Unsupported total number of species (max 26 species)"     
+
+  (** load test data**)
+  // compute expected CRNs with diffusibles from non-isomorphic CRNs 
+  let subs = makeSubs (List.sum classes)
+  let classSubs = makeClassSubs classes
+  printfn "- Generating expected CRNs by permuting species"
+  let loadedCRNs = loadCRNFile expectedPath 
+  let expectedCRNs = 
+    loadedCRNs 
+    |> List.map List.sort
+    |> List.collect (fun crn ->
+        // expand CRN into all its permutations
+        subs 
+        |> List.map (renameCRN crn)
             
-            // filter by class permutations
-            |> List.fold (fun acc crn -> 
-                  if classSubs 
-                     |> List.exists (fun perm -> 
-                         renameCRN crn perm 
-                         |> fun x -> List.contains x acc)
-                     |> not
-                    then crn :: acc
-                    else acc) []
-            |> List.distinct
-            |> List.rev)
-        |> Set.ofList
+        // filter by class permutations
+        |> List.fold (fun acc crn -> 
+              if classSubs 
+                  |> List.exists (fun perm -> 
+                      renameCRN crn perm 
+                      |> fun x -> List.contains x acc)
+                  |> not
+                then crn :: acc
+                else acc) []
+        |> List.distinct
+        |> List.rev)
+    |> Set.ofList
       
-      let actual     = loadCRNFile actualPath
-                         |> List.map List.sort
-      let actualCRNs = actual |> Set.ofList
-      // remove identical CRNs first
-      
-      let missingExpected = Set.difference expectedCRNs actualCRNs
-      let missingActual   = Set.difference actualCRNs expectedCRNs 
+  printfn "- Generating actual CRNs from file"
+  let actual     = loadCRNFile actualPath
+                      |> List.map List.sort
+  let actualCRNs = actual |> Set.ofList
+  // remove identical CRNs first
+  
+  printf "- Computing the set difference (expected \ actual): "
+  let missingExpected = Set.difference expectedCRNs actualCRNs
+  printfn "found %d" missingExpected.Count
+  printf "- Computing the set difference (expected \ actual): "
+  let missingActual   = Set.difference actualCRNs expectedCRNs 
+  printfn "found %d" missingActual.Count
+  
+  let finalExpected = 
+    if missingExpected.Count > 0
+    then 
+      printfn "- Check if the missing CRNs are actually present as an isomorph"
+      missingExpected
+      |> Set.toList 
+      |> List.filter (fun crn -> 
+        classSubs 
+        |> List.map (renameCRN crn)
+        |> List.exists (fun isomorph -> actualCRNs |> Set.contains isomorph)
+        |> not)
+    else []
+  
+  let finalActual          = 
+    if missingActual.Count > 0
+    then 
+      missingActual
+      |> Set.toList 
+      |> List.filter (fun crn -> 
+        classSubs 
+        |> List.map (renameCRN crn)
+        |> List.exists (fun isomorph -> expectedCRNs |> Set.contains isomorph)
+        |> not)
+    else []
 
-      // check if the missing CRNs are actually present as an isomorph
-      let finalExpected        = missingExpected
-                                 |> Set.toList 
-                                 |> List.filter (fun crn -> 
-                                    classSubs 
-                                    |> List.map (renameCRN crn)
-                                    |> List.exists (fun isomorph -> actualCRNs |> Set.contains isomorph)
-                                    |> not)
-
-      let finalActual          = missingActual
-                                 |> Set.toList 
-                                 |> List.filter (fun crn -> 
-                                    classSubs 
-                                    |> List.map (renameCRN crn)
-                                    |> List.exists (fun isomorph -> expectedCRNs |> Set.contains isomorph)
-                                    |> not)
-
-      if not (finalExpected.IsEmpty && finalActual.IsEmpty)
-        then 
-          // prepare error msg
-          let provenance, counterExample = 
-            if not finalExpected.IsEmpty 
-              then "actual",   finalExpected
-              else "expected", finalActual
-            |> fun (x, y) ->  x, y |> List.head
-                                   |> printCRN
-          failwithf "The following CRN was not found in the %s list: \n%s\n" provenance counterExample
-        else printf "Test passed!"
+  if not (finalExpected.IsEmpty && finalActual.IsEmpty)
+  then 
+    // prepare error msg
+    let provenance, counterExample = 
+      if not finalExpected.IsEmpty 
+      then "actual",   finalExpected
+      else "expected", finalActual
+      |> fun (x, y) ->  x, y |> List.head |> printCRN
+    failwithf "The following CRN was not found in the %s list: \n%s\n" provenance counterExample
+  else printfn "Test passed!"
 
 
 [<EntryPoint>]
 let main _ = 
-    testClass [1;2] @".\expected34.txt" @".\actual34_12.txt"
+    testClass [1;2] @"..\..\..\test\expected31.txt" @"..\..\..\test\actual31_12.txt"
     0
