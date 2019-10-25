@@ -1,6 +1,6 @@
 ﻿open System
 open System.Collections.Generic
-
+open Argu
 
 //////////////////////////////////////////////////////////////////////////////////
 // Multisets, to represent complexes
@@ -192,6 +192,8 @@ let loadCRNFile filePath =
   |> snd 
   |> List.rev
 
+
+/// The test method
 let testClass classes expectedPath actualPath =
   classes |> List.map (sprintf "%d") |> String.concat ";" |> printfn "Testing species classes [%s]" 
   let maxSpecies = List.sum classes
@@ -273,8 +275,31 @@ let testClass classes expectedPath actualPath =
     failwithf "The following CRN was not found in the %s list: \n%s\n" provenance counterExample
   else printfn "Test passed!"
 
+// Parser
+type Arguments =
+  | [<Mandatory;AltCommandLine("-s")>] Species_Classes of int list
+  | [<Mandatory;AltCommandLine("-e")>] Expected of string
+  | [<Mandatory;AltCommandLine("-a")>] Actual of string
+  | Test_Directory of path:string
+  with
+  interface IArgParserTemplate with
+      member s.Usage =
+          match s with
+          | Species_Classes _ -> "Species classes to test"
+          | Expected _        -> "File path for genCRN results for no species classes"
+          | Actual _          -> "File path for genCRN results with species classes"
+          | Test_Directory _  -> "Directory where genCRN results can be read from"
 
 [<EntryPoint>]
-let main _ = 
-    testClass [1;2] @"..\..\..\test\expected31.txt" @"..\..\..\test\actual31_12.txt"
+let main args = 
+    let parser = ArgumentParser.Create<Arguments>(programName = "TestGenCRN.exe")
+    let parse_results = parser.Parse args
+
+    let species_classes = parse_results.GetResult Species_Classes
+    let test_dir = parse_results.GetResult (Test_Directory, defaultValue = "")
+    let path_expected = System.IO.Path.Combine (test_dir, parse_results.GetResult Expected)
+    let path_actual   = System.IO.Path.Combine (test_dir, parse_results.GetResult Actual)
+
+    testClass species_classes path_expected path_actual
+
     0
