@@ -14,7 +14,7 @@
     -m  only produce mass-conserving CRNs (all species are under some conservation law)\n\
     -n# number of species\n\
     -q  only count the number of CRNs\n\
-    -s# species colouring. For example, \"-s1;3;2\" means that A has colour 1, B C and D have colour 2, E F have colour 3)\n\
+    -s# partition species into classes. For example, \"-s1;2;3\" means that A is in class 1, B and C are in class 2, and E F are in class 3. Classes cardinality must be in non-decreasing order.\n\
     -t  only produce \"dynamically non-trivial\" CRNs (see https://arxiv.org/abs/1705.10820) \n\
     -x  only produce CRNs with no conservation laws\n\
     -z  do not include the naught complex in any reaction (e.g. | -> A)\n"
