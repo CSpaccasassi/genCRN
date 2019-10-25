@@ -2684,6 +2684,11 @@ mainMethod(int argc, char *argv[])
       speciesClasses[i] = (int)speciesClasses2[i];
       classCardTotal += speciesClasses[i];
     }
+		if (classCardTotal != speciesCount)
+		{
+			fprintf(stderr, "Species colouring sums to %d, which differs from the species count (-n%d). Exiting...\n", classCardTotal, speciesCount);
+			gt_abort(NULL);
+		}
   }
 
   boolean byteEncodingPrinted = FALSE;
