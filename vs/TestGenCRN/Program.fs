@@ -235,7 +235,7 @@ let testClass classes expectedPath actualPath =
   printf "- Computing the set difference (expected \ actual): "
   let missingExpected = Set.difference expectedCRNs actualCRNs
   printfn "found %d" missingExpected.Count
-  printf "- Computing the set difference (expected \ actual): "
+  printf "- Computing the set difference (actual \ expected): "
   let missingActual   = Set.difference actualCRNs expectedCRNs 
   printfn "found %d" missingActual.Count
   
@@ -272,8 +272,11 @@ let testClass classes expectedPath actualPath =
       then "actual",   finalExpected
       else "expected", finalActual
       |> fun (x, y) ->  x, y |> List.head |> printCRN
-    failwithf "The following CRN was not found in the %s list: \n%s\n" provenance counterExample
-  else printfn "Test passed!"
+    printfn "The following CRN was not found in the %s list: \n%s\n" provenance counterExample
+    1
+  else 
+    printfn "Test passed!"
+    0
 
 // Parser
 type Arguments =
@@ -301,5 +304,3 @@ let main args =
     let path_actual   = System.IO.Path.Combine (test_dir, parse_results.GetResult Actual)
 
     testClass species_classes path_expected path_actual
-
-    0
