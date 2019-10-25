@@ -1,22 +1,23 @@
 /* command-line help and arguments passing adapted from vcolg.c version 2.0; B D McKay, May 11, 2017 */
 
 #define USAGE \
-"gencrn [-n#] [-q] [-z] [-c] [-t|-l|-m] [-x]  \n"
+"gencrn [-n#] [-q] [-z] [-c] [-t|-l|-m] [-x] [-s#] [-b] \n"
 
 #define HELPTEXT \
 "  Read digraphs and produce all non-isomorphic CRNs, where the digraphs specify the reaction network. The output format is LBS.\n\
    If the input digraphs are non-isomorphic then the output CRNs are also.\n\
    If the input graph is an undirected, it is considered a reversible network (each undirected edge is turned into two opposite directed edges).\n\
 \n\
-    -n# number of species\n\
-    -z  do not include naught in any reaction (e.g. 0 -> A)\n\
-    -c  do not produce CRNs containing independent sub-CRNs (e.g. A->B, C->D) \n\
-    -t  only produce \"dynamically non-trivial\" CRNs (see https://arxiv.org/abs/1705.10820) \n\
-    -m  only produce mass-conserving CRNs (all species are under some conservation law)\n\
-    -l  only produce CRNs with at least a conservation law\n\
-    -x  only produce CRNs with no conservation laws\n\
     -b  encode CRN reactions into 1 byte (#species <= 4) or 2 bytes, and print them as a stream of bytes\n\
-    -q  only count the number of CRNs\n"
+    -c  do not produce CRNs containing independent sub-CRNs (e.g. | A->B | C->D) \n\
+    -l  only produce CRNs with at least a conservation law\n\
+    -m  only produce mass-conserving CRNs (all species are under some conservation law)\n\
+    -n# number of species\n\
+    -q  only count the number of CRNs\n\
+    -s# partition species into classes. For example, \"-s1;2;3\" means that A is in class 1, B and C are in class 2, and E F are in class 3. Classes cardinality must be in non-decreasing order.\n\
+    -t  only produce \"dynamically non-trivial\" CRNs (see https://arxiv.org/abs/1705.10820) \n\
+    -x  only produce CRNs with no conservation laws\n\
+    -z  do not include the naught complex in any reaction (e.g. | -> A)\n"
 
 /*************************************************************************/
 
@@ -119,6 +120,7 @@ static int connec = 0;              /* 1 for -c, 2 for -C, 0 for neither */
 statsblk nauty_stats;
 
 static int leastNBitsOn = 0;
+static int leastNBitsOnClass = 0;
 static int maxColorEdges = 0; // total number of edges necessary to color a CRN
 
 typedef struct
@@ -137,6 +139,9 @@ typedef struct
 } leveldata;
 
 static leveldata data;      /* data[n] is data for n -> n+1 */
+static leveldata classData;
+
+void crnextend(graph* g, int n, int ne, booleann isClassEnumeration); // declaration of crnextend to avoid cyclic dependencies in accept2
 
 #ifndef  MAXN  /* maximum allowed n value; use 0 for dynamic sizing. */
 #define MAXN 0
@@ -153,7 +158,8 @@ static booleann connectedSwitch   = FALSE
        , nonConservationLawSwitch = FALSE
        , noZeroNodeSwitch         = FALSE
        , massConservingSwitch     = FALSE
-       , byteEncodingSwitch       = FALSE;
+       , byteEncodingSwitch       = FALSE
+       , speciesClassesSwitch     = FALSE;
 
 
 
@@ -165,7 +171,11 @@ static int* colorPtn;
 static int  colorMask[4];
 static int currMol[MAXNN];
 static int maxMol[MAXNN];
-
+static int* speciesClass = NULL;
+static int classCount = 0;
+static int classCardTotal = 0;
+static long speciesClasses2[50];
+static int  speciesClasses[50];
 
 /*************************************/
 booleann canonise = 0;
@@ -179,6 +189,7 @@ static xword pxsetStreak[MAXNN]; // holds the current species assignments with t
                                  // The encoding must be Little-Endian, because data[n].xorb is encoded in Little-Endian too.
 
 static xword imax;
+static xword classMax;
 
 
 /* copied from naugroup.c, in order to allow multiple copies of *group */
@@ -203,9 +214,9 @@ struct naugroupState {
   permrec *gens;
   permrec *freelist;
   int     freelist_n;
-  int*    allp;
+  int     *allp;
   size_t  allp_sz;
-  int*    id;
+  int     *id;
   size_t  id_sz;
 };
 
@@ -543,7 +554,7 @@ mygrouplevelproc(int *lab, int *ptn, int level, int *orbits, statsblk *stats,
   int tv, int index, int tcellsize, int numcells, int cc, int n)
 {
   int depth;
-  size_t sz = 0; // TODO: check sz
+  size_t sz = 0;
 
   if (numcells == n)   /* first call */
   {
@@ -607,7 +618,7 @@ myuserautomproc(int count, int *p, int *orbits,
 /**************************************************************************/
 
 static void
-recomputeGroup(graph *g, int n)
+recomputeGroup(graph *g, int n, booleann isClassEnumeration)
 {
   int lab[MAXNN], ptn[MAXNN], orbits[MAXNN];
   statsblk stats;
@@ -615,16 +626,31 @@ recomputeGroup(graph *g, int n)
   setword workspace[50];
 
   // copy the initial blank CRN coloring; put assignments in the same cell
+  int currClassIndex = graphSize + speciesCount - 1;
+  int currClass      = 0;
   for (int z = 0; z < n; z++) {
     if (z < graphSize) {
       lab[z] = colorLab[z];
       ptn[z] = colorPtn[z];
     }
-    else {
+    else if (z < graphSize + speciesCount) { // species partitioning (all in the same cell)
       lab[z] = z;
       ptn[z] = 1;
     }
+    else { // class partitioning (one cell per class)
+      lab[z] = z;
+
+      if (z == currClassIndex + speciesClasses[currClass]) {
+        ptn[z]         = 0;
+        currClassIndex = currClassIndex + speciesClasses[currClass];
+        currClass++;
+      }
+      else ptn[z] = 1;
+    }
   }
+  if (n >= graphSize + speciesCount) // terminate the species assignment nodes partition
+    ptn[graphSize + speciesCount - 1] = 0;
+  lab[n] = n;
   ptn[n] = 0; // cell terminator
 
   options.digraph       = TRUE;
@@ -639,7 +665,8 @@ recomputeGroup(graph *g, int n)
 
   // set rigid flag (i.e. all orbits have size 1)
   states[n].isRigid = TRUE;
-  for (int i = 0; i < graphSize; i++)
+  int graphMax = (!isClassEnumeration) ? graphSize : graphSize + speciesCount;
+  for (int i = 0; i < graphMax; i++)
     states[n].isRigid = states[n].isRigid && (orbits[i] == i);
 
   // set coset representatives
@@ -1181,7 +1208,7 @@ struct canonTestArgs {
   xword x;
 };
 
-int cmpfunc(const void * a, const void * b) {
+int cmpfunc(const void *a, const void *b) {
   return (*(int*)a - *(int*)b);
 }
 
@@ -1278,7 +1305,7 @@ int connectedSpecies(graph* g, int current, int n, booleann* visited, int missin
   return currMissing;
 }
 
-booleann isConnected(graph*g, int n) {
+booleann isConnected(graph *g, int n) {
   // set visited nodes array
   booleann* visited = malloc(n * sizeof(booleann));
   for (int i = 0; i < n; i++)
@@ -1418,7 +1445,7 @@ void makeReducedRowEchelon(double** matrix, int m, int n) {
       }
     }
   }
-    }
+}
 
 double gcd(double a, double b) {
   double temp;
@@ -1526,45 +1553,45 @@ double** makeFarkasArray(double** matrix, int m, int* matrixRowsDim, int* alloca
 // Quick Non-trivial test: Check if there is a positive vector in the stoichiometry matrix
 booleann isNonTrivialQuick(double** matrix, int numSpecies, int numReactions) {
   booleann res = TRUE;
-	for (int i = 0; i < numSpecies; i++) {
-		booleann allNegative = TRUE;
-		booleann allPositive = TRUE;
-		booleann allZero = TRUE;
-		for (int j = 0; j < numReactions; j++) {
-			if (matrix[i][j] < 0) {
-				allPositive = FALSE;
-				allZero = FALSE;
-			}
-			else if (matrix[i][j] > 0) {
-				allNegative = FALSE;
-				allZero = FALSE;
-			}
-		}
-		if ((allPositive == TRUE || allNegative == TRUE) && allZero != TRUE) {
-			res = FALSE;
-			break;
-		}
-	}
+  for (int i = 0; i < numSpecies; i++) {
+    booleann allNegative = TRUE;
+    booleann allPositive = TRUE;
+    booleann allZero = TRUE;
+    for (int j = 0; j < numReactions; j++) {
+      if (matrix[i][j] < 0) {
+        allPositive = FALSE;
+        allZero = FALSE;
+      }
+      else if (matrix[i][j] > 0) {
+        allNegative = FALSE;
+        allZero = FALSE;
+      }
+    }
+    if ((allPositive == TRUE || allNegative == TRUE) && allZero != TRUE) {
+      res = FALSE;
+      break;
+    }
+  }
 
-	return res;
+  return res;
 }
 
 void printMatrix(double** matrix, int m, int n) {
-	for (int i = 0; i < m; i++) {
-		for (int j = 0; j < n; j++)
-			printf("%1.12f ", matrix[i][j]);
-		printf("\n");
-	}
-	printf("\n");
+  for (int i = 0; i < m; i++) {
+    for (int j = 0; j < n; j++)
+      printf("%1.12f ", matrix[i][j]);
+    printf("\n");
+  }
+  printf("\n");
 }
 
 /* Application of the Fourier-Motzkin Elimination algorithm to the case (\Gamma^{T}x >= 0) with x \neq 0, where \Gamma is the stoichimetry matrix of the CRN.
      (note: the stoichimoetry matrix \Gamma is not transposed in the code, we just reverse apply FME on it with indices reversed) */
 booleann isNonTrivialFME(double** matrix, int numSpecies, int numReactions) {
-	
-	double tol = 1e-12;
 
-	boolean solved = FALSE;
+  double tol = 1e-12;
+
+  boolean solved = FALSE;
   int matrixSize = numReactions;
 
   int* pos = (int*)malloc(matrixSize * sizeof(int));
@@ -1574,17 +1601,17 @@ booleann isNonTrivialFME(double** matrix, int numSpecies, int numReactions) {
   for (int j = 0; j < numSpecies; j++) {
     int psize = 0; int nsize = 0; // size of P and N
 
-		//printMatrix(matrix, numSpecies, matrixSize);
+    //printMatrix(matrix, numSpecies, matrixSize);
 
     // dynamically augment the set of positive and negative coefficient indices if more inequalities were created last time
     if (moreInequalitiesAdded == TRUE) {
       int* tmppos = (int*) realloc(pos, matrixSize * sizeof(int));
       int* tmpneg = (int*) realloc(neg, matrixSize * sizeof(int));
-        
+
       if (tmppos == NULL || (tmpneg == NULL))
         fprintf(ERRFILE, ">E realloc failed in Fourier-Motzkin Elimination algorithm\n");
       else {
-        pos = tmppos; 
+        pos = tmppos;
         neg = tmpneg;
       }
 
@@ -1600,14 +1627,14 @@ booleann isNonTrivialFME(double** matrix, int numSpecies, int numReactions) {
     boolean someMonoCoefficientIsNegative = FALSE;
     for (int i = 0; i < matrixSize; i++) {
       if (fabs(matrix[j][i]) < tol) continue;
-			//if (matrix[j][i] == 0.0) continue;
+      //if (matrix[j][i] == 0.0) continue;
       else allCoefficientsAreZero = FALSE;
 
       // check if all other coefficients are zero in the row
       boolean onlyNonZeroCoefficient = TRUE;
       for (int k = j + 1; k < numSpecies; k++) {
         if (fabs(matrix[k][i]) > tol) { onlyNonZeroCoefficient = FALSE; break; }
-				//if (matrix[k][i] != 0.0) { onlyNonZeroCoefficient = FALSE; break; }
+        //if (matrix[k][i] != 0.0) { onlyNonZeroCoefficient = FALSE; break; }
       }
 
       // mark down all positive and negative coefficients
@@ -1642,10 +1669,10 @@ booleann isNonTrivialFME(double** matrix, int numSpecies, int numReactions) {
     if ((psize != 0 || nsize != 0)) {
       if (psize == 0) {       continue; }
       else if (nsize == 0) {  continue; }
-      else {                                                
+      else {
         // Simplify x_j and create new inequalities, as per FME
         moreInequalitiesAdded = TRUE;
-          
+
         // allocate more space for the new equations
         int newEquationsSize = matrixSize + (psize * nsize);
         for (int k = 0; k < numSpecies; k++) {
@@ -1685,92 +1712,25 @@ booleann isNonTrivialFME(double** matrix, int numSpecies, int numReactions) {
 }
 
 booleann isNonTrivial(graph* g, int ne) {
-	double** matrix = makeIncidenceMatrix(g, speciesCount, ne);
+  double** matrix = makeIncidenceMatrix(g, speciesCount, ne);
 
-	//makeReducedRowEchelon(matrix, speciesCount, ne); // disabled due to numerical errors in the procedure
+  //makeReducedRowEchelon(matrix, speciesCount, ne); // disabled due to numerical errors in the procedure
 
-	booleann res = isNonTrivialQuick(matrix, speciesCount, ne);
-	if (res != FALSE) {
-		res = isNonTrivialFME(matrix, speciesCount, ne);
-	}
-	freeIncidenceMatrix(matrix, speciesCount);
-
-	return res;
-}
-
-void accept2(graph* g, int n) {
-  booleann con = TRUE;
-  if (connectedSwitch == TRUE) con = isConnected(g, n);
-
-  if (con)
-  {
-    int ne = countEdges(g, n);
-    booleann nonTrivial = TRUE;
-    if (counter >= 37462) { nonTrivialSwitch = TRUE; }
-
-    if (nonTrivialSwitch == TRUE) {
-			nonTrivial = isNonTrivial(g, ne);
-    }
-    if (nonTrivial == TRUE)
-    {
-      booleann isConserving     = TRUE;
-      booleann isNotConserving  = TRUE;
-      booleann isMassConserving = TRUE;
-      if (conservationLawSwitch == TRUE || nonConservationLawSwitch == TRUE || massConservingSwitch == TRUE) {
-        double** matrix = makeIncidenceMatrix(g, n, ne);
-
-        // compute Farkas array
-        int matrixRowsDim = speciesCount;
-        int mSize         = -1;
-        matrix = makeFarkasArray(matrix, ne, &matrixRowsDim, &mSize);
-        if (conservationLawSwitch == TRUE && matrixRowsDim == 0)    isConserving = FALSE;
-        if (nonConservationLawSwitch == TRUE && matrixRowsDim != 0) isNotConserving = FALSE;
-        if (massConservingSwitch == TRUE) {
-          if (matrixRowsDim == 0)
-            isMassConserving = FALSE;
-          else {
-            for (int i = 0; i < speciesCount; i++) {
-              int speciesNotConserved = FALSE;
-              for (int j = 0; j < matrixRowsDim; j++) {
-                if (matrix[j][ne + i] != 0.0) {
-                  speciesNotConserved = TRUE;
-                  break;
-                }
-              }
-
-              if (speciesNotConserved == FALSE) {
-                isMassConserving = FALSE;
-                break;
-              }
-            }
-          }
-        }
-        freeIncidenceMatrix(matrix, mSize);
-      }
-
-      if ((!conservationLawSwitch && !nonConservationLawSwitch && !massConservingSwitch)
-        || (conservationLawSwitch && isConserving)
-        || (nonConservationLawSwitch && isNotConserving)
-        || (massConservingSwitch && isMassConserving))
-      {
-        if (printCrnSwitch)
-          if(byteEncodingSwitch) printByteEncoding(g);
-          else printCRN(g, n, speciesCount);
-        // printERODE(g, n, speciesCount, ne);
-        counter++;
-      }
-    }
+  booleann res = isNonTrivialQuick(matrix, speciesCount, ne);
+  if (res != FALSE) {
+    res = isNonTrivialFME(matrix, speciesCount, ne);
   }
+  freeIncidenceMatrix(matrix, speciesCount);
+
+  return res;
 }
 
-
-
-booleann isCanon(graph* g, int n) {
+booleann isCanon(graph* g, int n, booleann isClassEnumeration) {
   booleann isCanon;
 
   if (!states[n].isRigid) {
     first2 = TRUE;
-    struct canonTestArgs args = { g, states[n].streak, n };
+    struct canonTestArgs args = { g, states[n].streak, n, isClassEnumeration };
     isCanon = !myallgroup3(mygroup, myFun, &args);
   }
   else isCanon = TRUE;
@@ -1801,7 +1761,7 @@ void resumeState(int n) {
   loadGroupState(n);
 }
 
-void makeNextState(graph* g, int n, xword x, int xc, int i) {
+void makeNextState(graph* g, int n, xword x, int xc, int i, booleann isClassEnumeration) {
   // add the new assignment
   extendGraph(g, x, n);
 
@@ -1809,85 +1769,249 @@ void makeNextState(graph* g, int n, xword x, int xc, int i) {
   booleann hasCardinalityIncreased = (xc != states[n].currentCardinality);
 
   // update which blank nodes are now fully or partially assigned
-  states[n + 1].assigned             = states[n].assigned | (x & (colorMask[1] | colorMask[2] | states[n].assignedHeterodimers));
-  states[n + 1].assignedHeterodimers = states[n].assignedHeterodimers | x & ~states[n].assignedHeterodimers & colorMask[3];
-  states[n + 1].streak               = !hasCardinalityIncreased ? states[n].streak + 1 : 1;
-  states[n + 1].isRigid              = states[n].isRigid;
-  states[n + 1].currentCardinality   = xc;
-  states[n + 1].currentXSetIndex     = i;
+  if (!isClassEnumeration) {
+    states[n + 1].assigned = states[n].assigned | (x & (colorMask[1] | colorMask[2] | states[n].assignedHeterodimers));
+    states[n + 1].assignedHeterodimers = states[n].assignedHeterodimers | x & ~states[n].assignedHeterodimers & colorMask[3];
+    states[n + 1].streak = !hasCardinalityIncreased ? states[n].streak + 1 : 1;
+  }
+  else {
+    states[n + 1].assigned = states[n].assigned | x;
+    states[n + 1].streak = 1;
+  }
+  states[n + 1].isRigid = states[n].isRigid;
+  states[n + 1].currentCardinality = xc;
+  states[n + 1].currentXSetIndex = i;
 
   if (hasCardinalityIncreased)
-    recomputeGroup(g, n);
+    recomputeGroup(g, n, isClassEnumeration);
 }
 
 
+
+void printAcceptedCRN(graph* g, int n, booleann isClassEnumeration) {
+  graph* g1;
+
+  if (!isClassEnumeration)
+    g1 = g;
+  else {
+    g1 = malloc(n * sizeof(xword));
+
+    // copy CRN reactions
+    for (int i = 0; i < graphSize; i++) {
+      g1[i] = g[i];
+    }
+
+    int currClass = 0;
+    for (int i = graphSize; i < graphSize + speciesCount; ) {
+      xword w = g[graphSize + speciesCount + currClass];
+
+      while (w) {
+        int j = XNEXTBIT(w);
+        w ^= xbit[j];
+        int node = MAXNN - j - 1;
+        g1[i] = g[node];
+        i++;
+      }
+
+      currClass++;
+    }
+  }
+
+  if (printCrnSwitch)
+    if (byteEncodingSwitch) printByteEncoding(g1);
+    else if (!isClassEnumeration)
+      printCRN(g1, n, speciesCount);
+    else printCRN(g1, graphSize + speciesCount, speciesCount);
+}
+
+void accept2(graph* g, int n, booleann isClassEnumeration) {
+  if (!isClassEnumeration) {
+    booleann con = TRUE;
+    if (connectedSwitch == TRUE) con = isConnected(g, n);
+
+    if (con)
+    {
+      int ne = countEdges(g, n);
+      booleann nonTrivial = TRUE;
+
+      if (nonTrivialSwitch == TRUE) {
+        nonTrivial = isNonTrivial(g, ne);
+      }
+      if (nonTrivial == TRUE)
+      {
+        booleann isConserving     = TRUE;
+        booleann isNotConserving  = TRUE;
+        booleann isMassConserving = TRUE;
+        if (conservationLawSwitch == TRUE || nonConservationLawSwitch == TRUE || massConservingSwitch == TRUE) {
+          double** matrix = makeIncidenceMatrix(g, n, ne);
+
+          // compute Farkas array
+          int matrixRowsDim = speciesCount;
+          int mSize         = -1;
+          matrix = makeFarkasArray(matrix, ne, &matrixRowsDim, &mSize);
+          if (conservationLawSwitch == TRUE && matrixRowsDim == 0)    isConserving = FALSE;
+          if (nonConservationLawSwitch == TRUE && matrixRowsDim != 0) isNotConserving = FALSE;
+          if (massConservingSwitch == TRUE) {
+            if (matrixRowsDim == 0)
+              isMassConserving = FALSE;
+            else {
+              for (int i = 0; i < speciesCount; i++) {
+                int speciesNotConserved = FALSE;
+                for (int j = 0; j < matrixRowsDim; j++) {
+                  if (matrix[j][ne + i] != 0.0) {
+                    speciesNotConserved = TRUE;
+                    break;
+                  }
+                }
+
+                if (speciesNotConserved == FALSE) {
+                  isMassConserving = FALSE;
+                  break;
+                }
+              }
+            }
+          }
+          freeIncidenceMatrix(matrix, mSize);
+        }
+
+        if ((!conservationLawSwitch && !nonConservationLawSwitch && !massConservingSwitch)
+          || (conservationLawSwitch && isConserving)
+          || (nonConservationLawSwitch && isNotConserving)
+          || (massConservingSwitch && isMassConserving))
+        {
+
+          if (!speciesClassesSwitch) {
+            printAcceptedCRN(g, n, isClassEnumeration);
+            counter++;
+          }
+          else {
+            saveState(n);
+            // makeNextState(g, n, 0, 0, 0, TRUE);
+            recomputeGroup(g, n, TRUE);
+            states[n].assigned = 0;
+            states[n].assignedHeterodimers = 0;
+            states[n].streak = 0;
+            states[n].currentCardinality = 1;
+            states[n].currentXSetIndex = 1;
+
+            crnextend(g, n, 0, TRUE);
+            resumeState(n);
+          }
+        }
+      }
+    }
+  }
+  else {
+    printAcceptedCRN(g, n, isClassEnumeration);
+    counter++;
+  }
+}
+
+
+
 void
-crnextend(graph *g, int n, int ne)
+crnextend(graph* g, int n, int ne, booleann isClassEnumeration)
 /* adapted from genc.c;  */
 {
   xword x;
   int nx, xc, i;
 
-  nx = n + 1; // new graph size
+  nx = n + 1; // new graph size OR next species class
 
-  // get last assignment's cardinality
-  int currXc  = states[n].currentCardinality;
-  int currIdx = states[n].currentXSetIndex;
+  // get last assignment's cardinality and xset index
+  int currXc, currIdx;
+  booleann isLastAssignment;
+  if (!isClassEnumeration) {
+    currXc           = states[n].currentCardinality;
+    currIdx          = states[n].currentXSetIndex;
+    isLastAssignment = (nx == maxn);
+  }
+  else {
+    currXc           = speciesClasses[0];
+    currIdx          = pow(2, currXc) - 1;
+    isLastAssignment = (nx - graphSize - speciesCount == classCount);
+  }
 
-  booleann isLastAssignment = (nx == maxn);
   if (isLastAssignment)
   {
     /* infer the last assignment.
        After choosing the previous n-1 species, there is only one possible assignment left to choose.
        Therefore we infer it from the graph, and check that it is valid and canonical */
-    x  = (leastNBitsOn ^ (states[n].assigned));
-    i  = data.xinv[x];
-    xc = data.xcard[i];
+    if (!isClassEnumeration) {
+      x  = leastNBitsOn ^ states[n].assigned;
+      i  = data.xinv[x];
+      xc = data.xcard[i];
 
-    //if (i <= 0) return;                              // failsafe check.
-    if (xc < currXc || i < currIdx) return;            // assignments are only added in increasing order of cardinality and xset encoding.
-    if (ne + xc != maxColorEdges) return;              // check that all complexes have species assigned.
-    if (skipEdge(x, states[n].assigned, g, n)) return; // skip invalid species assignments.
+      // safety checks 
+      if (xc < currXc || i < currIdx) return;            // assignments are only added in increasing order of cardinality and xset encoding.
+      if (ne + xc != maxColorEdges) return;              // check that all complexes have species assigned.
+      if (skipEdge(x, states[n].assigned, g, n)) return; // skip invalid species assignments.
+    }
+    else {
+      x  = leastNBitsOnClass ^ states[n].assigned;
+      i  = classData.xinv[x >> graphSize];
+      xc = classData.xcard[i];
+      
+      // safety checks 
+      if (xc + ne != classCardTotal) return;            // check that all species have been partitioned into classes
+      if (x & states[n].assigned) return;               // check that each species is assigned to one class only
+    }
 
     // recompute the group if the cardinality has increased
     booleann hasCardinalityIncreased = (xc != currXc);
-    if (hasCardinalityIncreased)
+    if (hasCardinalityIncreased && !isClassEnumeration)
       saveState(n);
-    makeNextState(g, n, x, xc, i);
+    makeNextState(g, n, x, xc, i, isClassEnumeration);
 
     // accept the state if canonical 
-    if (isCanon(g, nx))
-      accept2(g, nx);
+    if (isCanon(g, nx, isClassEnumeration))
+      accept2(g, nx, isClassEnumeration);
 
     // backtrack to previous state
-    if (hasCardinalityIncreased)
+    if (hasCardinalityIncreased && !isClassEnumeration)
       resumeState(n);
-
-    // freeState(&lastState);
   }
   else {
-    for (i = currIdx; i < imax; ++i)
-    {
+    int max = !isClassEnumeration ? imax : classMax;
+    for (i = currIdx; i < max; ++i) {
       // take the next valid assignment
-      x  = data.xset[i];
-      xc = data.xcard[i];
-      if (skipEdge(x, states[n].assigned, g, n)) continue;  // skip invalid assignments
+      if (!isClassEnumeration) {
+        x = data.xset[i];
+        xc = data.xcard[i];
 
-      // recompute the group if the cardinality has increased
+        // skip invalid assignments
+        if (skipEdge(x, states[n].assigned, g, n)) continue;  
+      }
+      else {
+        x  = classData.xset[i];    
+        xc = classData.xcard[i]; 
+
+        // safety checks
+        if (xc != speciesClasses[n - graphSize - speciesCount]) continue; // exit if all assignments for the current species class have been tried out
+        if (x & states[n].assigned) continue;                             // check that each species is assigned to one class only
+      }
+
+    // recompute the group if the cardinality has increased
       booleann hasCardinalityIncreased = (xc != currXc);
-      if (hasCardinalityIncreased)
+      if (hasCardinalityIncreased && !isClassEnumeration)
         saveState(n);
-      makeNextState(g, n, x, xc, i);
+      makeNextState(g, n, x, xc, i, isClassEnumeration);
 
       // explore the new state if canonical
-      if (isCanon(g, nx)) {
-        crnextend(g, nx, ne + xc);
+      if (isCanon(g, nx, isClassEnumeration)) {
+        if (isClassEnumeration) {
+          saveState(nx);
+          recomputeGroup(g, nx, isClassEnumeration);
+        }
+
+        crnextend(g, nx, ne + xc, isClassEnumeration);
+
+        if (isClassEnumeration) resumeState(nx);
       }
 
       // backtrack to previous state
-      if (hasCardinalityIncreased) {
+      if (hasCardinalityIncreased && !isClassEnumeration) {
         resumeState(n);
-        // freeState(&state);
       }
     }
   }
@@ -1904,87 +2028,104 @@ static booleann validAssignment(xword i, xword* colorMask, int maxHeterodimers) 
 }
 
 static void
-makeleveldata(booleann restricted, xword* colorMask, int speciesCount)
+makeleveldata(booleann restricted, xword* colorMask, int speciesCount, booleann isClassEnumeration)
 /* make the level data for each level */
 {
   long h;
-  int n, nn, j;
+  int n, nn, j, currMaxDeg;
   long ncj;
-  leveldata *d;
-  xword *xcard;
-  xword *xset, tttn, nxsets;
+  leveldata* d;
+  xword* xcard;
+  xword* xset, tttn, nxsets;
 
-  n = graphSize;
-  int lvl = graphSize;
-  {
+  if (!isClassEnumeration) {
+    n = graphSize;
     nn = maxdeg <= n ? maxdeg : n;
-    ncj = nxsets = 1;
-    /* compute the total number of xsets (i.e. all possible sets of edges, or the powerset over the set of edges in the graph up to n nodes) */
-    for (j = 1; j <= nn; ++j)
-    {
-      ncj = (ncj * (n - j + 1)) / j;
-      nxsets += ncj;
-    }
-    tttn = 1L << n;
-
-    d = &data;
-
-    d->ne = d->dmax = d->xlb = d->xub = -1;
-
-    xset = (xword*)calloc(nxsets, sizeof(xword));
-    xcard = (xword*)calloc(nxsets, sizeof(xword));
-
-    if (xset == NULL || xcard == NULL)
-    {
-      fprintf(stderr, ">E geng: calloc failed in makeleveldata()\n");
-      exit(2);
-    }
-
-    j = 0;
-
-    int maxHeterodimers = bimolecularComplexesCount(speciesCount, 3);
-    for (int bits = 0; bits <= n; bits++) {
-      int total = binomialCoeff(n, bits);
-      int perm = (int) pow(2, bits) - 1;
-      for (int z = 0; z < total; z++) {
-        if ((h = XPOPCOUNT(perm)) <= maxdeg
-          && validAssignment(perm, colorMask, maxHeterodimers))
-        {
-          xset[j] = perm;
-          xcard[j] = h;
-          ++j;
-        }
-        perm = next_perm(perm);
-      }
-    }
-    d->xset = (xword*)calloc(j, sizeof(xword));
-    d->xcard = (xword*)calloc(j, sizeof(xword));
-    d->xinv = (xword*)calloc(tttn, sizeof(xword));
-    for (int z = 0; z < tttn; z++) {
-      d->xinv[z] = -1;
-    }
-    for (int z = 0; z < j; z++) {
-      d->xset[z]       = xset[z];
-      d->xcard[z]      = xcard[z];
-      d->xinv[xset[z]] = z;
-    }
-
-    if (d->xset == NULL || d->xcard == NULL || d->xinv == NULL)
-    {
-      fprintf(stderr, ">E geng: calloc failed in makeleveldata()\n");
-      exit(2);
-    }
-
-    imax = j;
-    free(xset);
-    free(xcard);
+    currMaxDeg = maxdeg;
   }
+  else {
+    // calculate the largest class' size
+    int maxClassCardinality = -1;
+    for (int i = 0; i < classCount; i++)
+      if (speciesClasses[i] > maxClassCardinality) maxClassCardinality = speciesClasses[i];
+
+    n = speciesCount;
+    currMaxDeg = maxClassCardinality;
+    nn = currMaxDeg <= n ? currMaxDeg : n; // TODO
+  }
+
+  ncj = nxsets = 1;
+  /* compute the total number of xsets (i.e. all possible sets of edges, or the powerset over the set of edges in the graph up to n nodes) */
+  for (j = 1; j <= nn; ++j)
+  {
+    ncj = (ncj * (n - j + 1)) / j;
+    nxsets += ncj;
+  }
+  tttn = 1L << n;
+
+  if (!isClassEnumeration) d = &data;
+  else                     d = &classData;
+
+  d->ne = d->dmax = d->xlb = d->xub = -1;
+
+  xset = (xword*)calloc(nxsets, sizeof(xword));
+  xcard = (xword*)calloc(nxsets, sizeof(xword));
+
+  if (xset == NULL || xcard == NULL)
+  {
+    fprintf(stderr, ">E geng: calloc failed in makeleveldata()\n");
+    exit(2);
+  }
+
+  j = 0;
+
+  int maxHeterodimers = bimolecularComplexesCount(speciesCount, 3);
+  for (int bits = 0; bits <= n; bits++) {
+    int total = binomialCoeff(n, bits);
+    int perm = (int)pow(2, bits) - 1;
+    for (int z = 0; z < total; z++) {
+      if ((h = XPOPCOUNT(perm)) <= currMaxDeg
+        && (isClassEnumeration || validAssignment(perm, colorMask, maxHeterodimers)))
+      {
+        if (!isClassEnumeration) xset[j] = perm;
+        else                     xset[j] = perm << graphSize; // shift xset to target species assignment nodes
+        xcard[j] = h;
+        ++j;
+      }
+      perm = next_perm(perm);
+    }
+  }
+  d->xset = (xword*)calloc(j, sizeof(xword));
+  d->xcard = (xword*)calloc(j, sizeof(xword));
+  d->xinv = (xword*)calloc(tttn, sizeof(xword));
+  for (int z = 0; z < tttn; z++) {
+    d->xinv[z] = -1;
+  }
+  for (int z = 0; z < j; z++) {
+    d->xset[z] = xset[z];
+    d->xcard[z] = xcard[z];
+    if (!isClassEnumeration)
+      d->xinv[xset[z]] = z;
+    else d->xinv[xset[z] >> graphSize] = z;
+  }
+
+  if (d->xset == NULL || d->xcard == NULL || d->xinv == NULL)
+  {
+    fprintf(stderr, ">E geng: calloc failed in makeleveldata()\n");
+    exit(2);
+  }
+
+  if (!isClassEnumeration) imax = j;
+  else                     classMax = j;
+
+  free(xset);
+  free(xcard);
 }
 
 /**************************************************************************/
 
 static void
-writeautom(int *p, int n)
+writeautom(int* p, int n)
 /* Called by allgroup. */
 {
   int i;
@@ -2097,10 +2238,13 @@ trythisone(grouprec *group, graph *g, booleann digraph, int m, int n
         }
 
       graphSize = n;
-      makeleveldata(FALSE, colorMask, speciesCount);
+      makeleveldata(FALSE, colorMask, speciesCount, FALSE);
+      if (speciesClassesSwitch)
+        makeleveldata(FALSE, colorMask, speciesCount, TRUE);
 
-      // TODO: comment
-      leastNBitsOn = n == 32 ? 0xffffffff : (1 << n) - 1;
+      // bit mask to get the complexes or species from a graph
+      leastNBitsOn      = n == 32 ? 0xffffffff : (1 << n) - 1;
+      leastNBitsOnClass = n == 32 ? 0xffffffff : (1 << speciesCount) - 1 << graphSize;
 
       // set the initials cell partition to reflect the complex coloring.
       // Also, set the total number of edges that must be drawn from the species nodes to the complexes node to have a full CRN
@@ -2150,7 +2294,7 @@ trythisone(grouprec *group, graph *g, booleann digraph, int m, int n
       states[n].currentCardinality   = 1;
       states[n].currentXSetIndex     = 1;
 
-      crnextend(g, n, 0);
+      crnextend(g, n, 0, FALSE);
 
       free(data.xset);
       free(data.xcard);
@@ -2428,8 +2572,9 @@ mainMethod(int argc, char *argv[])
     else SWBOOLEAN('t', nonTrivialSwitch)         // filter out trivial CRNs
     else SWBOOLEAN('m', massConservingSwitch)     // filter out non-mass conserving CRNs
     else SWBOOLEAN('b', byteEncodingSwitch)       // print CRNs using byte encoding
-    else SWBOOLEAN('T', Tswitch) // non-conservation law
+    else SWBOOLEAN('T', Tswitch)                  // non-conservation law
     else SWINT('n', hasSpeciesCount, speciesCount, "gencrn -n")
+    else SWSEQUENCE('s', ';', speciesClassesSwitch, speciesClasses2, 100, speciesClasses, "gencrn -s")
     // else SWINT('m', hasMolecularity, molecularity, "gencrn -m")
     //else SWINT('f',fswitch,nfixed,"vcolg -f")
     //else SWRANGE('e',":-",eswitch,minedges,maxedges,"vcolg -e")
@@ -2469,16 +2614,17 @@ mainMethod(int argc, char *argv[])
     if (eswitch || mswitch || uswitch || (fswitch && nfixed > 0)
       || Tswitch)
       CATMSG0(" -");
-    if (mswitch) CATMSG1("m%ld", numcols);
-    if (uswitch) CATMSG0("u");
-    if (Tswitch) CATMSG0("T");
-    if (noZeroNodeSwitch) CATMSG0("z");
-    if (connectedSwitch) CATMSG0("c");
-    if (conservationLawSwitch) CATMSG0("l");
-    if (nonTrivialSwitch) CATMSG0("t");
+    if (mswitch)                  CATMSG1("m%ld", numcols);
+    if (uswitch)                  CATMSG0("u");
+    if (Tswitch)                  CATMSG0("T");
+    if (noZeroNodeSwitch)         CATMSG0("z");
+    if (connectedSwitch)          CATMSG0("c");
+    if (conservationLawSwitch)    CATMSG0("l");
+    if (nonTrivialSwitch)         CATMSG0("t");
     if (nonConservationLawSwitch) CATMSG0("x");
-    if (massConservingSwitch) CATMSG0("m");
-    if (byteEncodingSwitch) CATMSG0("b");
+    if (massConservingSwitch)     CATMSG0("m");
+    if (byteEncodingSwitch)       CATMSG0("b");
+    if (speciesClassesSwitch)     CATMSG0("s");
     if (fswitch) CATMSG1("f%d", nfixed);
     if (eswitch) CATMSG2("e%ld:%ld", minedges, maxedges);
     msglen = strlen(msg);
@@ -2530,17 +2676,32 @@ mainMethod(int argc, char *argv[])
   QueryPerformanceFrequency(&frequency);
   QueryPerformanceCounter(&start);
 #endif
+
+  // set species classes data if specified by the user
+  if (speciesClassesSwitch) {
+    classCount = speciesClasses[0];
+    for (int i = 0; i < classCount; i++) {
+      speciesClasses[i] = (int)speciesClasses2[i];
+      classCardTotal += speciesClasses[i];
+    }
+		if (classCardTotal != speciesCount)
+		{
+			fprintf(stderr, "Species colouring sums to %d, which differs from the species count (-n%d). Exiting...\n", classCardTotal, speciesCount);
+			gt_abort(NULL);
+		}
+  }
+
   boolean byteEncodingPrinted = FALSE;
   while (TRUE)
   {
-    if ((g = readggcrn(infile, NULL, 0, &m, &n, &digraph, speciesCount)) == NULL) break;
+    if ((g = readggcrn(infile, NULL, 0, &m, &n, &digraph, speciesCount, classCount)) == NULL) break;
     ++vc_nin;
 
     numcols = molecularity = 4; // molecularity;
     maxComplexes = complexesTotal(speciesCount, 2);
     if (byteEncodingSwitch && byteEncodingPrinted == FALSE) {
       int reactionsCount = 0;
-      for (int i=0; i<n;i++)
+      for (int i = 0; i < n; i++)
         reactionsCount += XPOPCOUNT(g[i]);
       printf("%i\n%i\n", speciesCount, reactionsCount);
       byteEncodingPrinted = TRUE;
@@ -2578,243 +2739,243 @@ mainMethod(int argc, char *argv[])
 
 // Non-trivial dynamics tests
 void testTrivial1() {
-	// A->B+C | ->B+C
-	int numSpecies = 3;
-	int numReactions = 2;
-	double** matrix = (double**)malloc(numSpecies * sizeof(double*));
-	for (int i = 0; i < numSpecies; i++) {
-		matrix[i] = malloc(numReactions * sizeof(double));
-	}
+  // A->B+C | ->B+C
+  int numSpecies = 3;
+  int numReactions = 2;
+  double** matrix = (double**)malloc(numSpecies * sizeof(double*));
+  for (int i = 0; i < numSpecies; i++) {
+    matrix[i] = malloc(numReactions * sizeof(double));
+  }
 
-	matrix[0][0] = -1.0;
-	matrix[0][1] = 0.0;
-	matrix[1][0] = 1.0;
-	matrix[1][1] = 1.0;
-	matrix[2][0] = 1.0;
-	matrix[2][1] = 1.0;
+  matrix[0][0] = -1.0;
+  matrix[0][1] = 0.0;
+  matrix[1][0] = 1.0;
+  matrix[1][1] = 1.0;
+  matrix[2][0] = 1.0;
+  matrix[2][1] = 1.0;
 
-	if (isNonTrivialFME(matrix, numSpecies, numReactions) == TRUE)
-		printf("Test error: Trivial1 returned non-trivial in FME\n");
+  if (isNonTrivialFME(matrix, numSpecies, numReactions) == TRUE)
+    printf("Test error: Trivial1 returned non-trivial in FME\n");
 }
 
 void testTrivial2() {
-	// A + B -> | 2B -> A + C | 2A -> B + C | C -> B
-	int numSpecies = 3;
-	int numReactions = 4;
-	double** matrix = (double**)malloc(numSpecies * sizeof(double*));
-	for (int i = 0; i < numSpecies; i++) {
-		matrix[i] = malloc(numReactions * sizeof(double));
-	}
+  // A + B -> | 2B -> A + C | 2A -> B + C | C -> B
+  int numSpecies = 3;
+  int numReactions = 4;
+  double** matrix = (double**)malloc(numSpecies * sizeof(double*));
+  for (int i = 0; i < numSpecies; i++) {
+    matrix[i] = malloc(numReactions * sizeof(double));
+  }
 
-	matrix[0][0] = -1.0;
-	matrix[0][1] = 1.0;
-	matrix[0][2] = -2.0;
-	matrix[0][3] = 0.0;
-	matrix[1][0] = -1.0;
-	matrix[1][1] = -2.0;
-	matrix[1][2] = 1.0;
-	matrix[1][3] = 1.0;
-	matrix[2][0] = 0.0;
-	matrix[2][1] = 1.0;
-	matrix[2][2] = 1.0;
-	matrix[2][3] = -1.0;
+  matrix[0][0] = -1.0;
+  matrix[0][1] = 1.0;
+  matrix[0][2] = -2.0;
+  matrix[0][3] = 0.0;
+  matrix[1][0] = -1.0;
+  matrix[1][1] = -2.0;
+  matrix[1][2] = 1.0;
+  matrix[1][3] = 1.0;
+  matrix[2][0] = 0.0;
+  matrix[2][1] = 1.0;
+  matrix[2][2] = 1.0;
+  matrix[2][3] = -1.0;
 
-	if (isNonTrivialFME(matrix, numSpecies, numReactions) == TRUE)
-		printf("Test error: Trivial2 returned non-trivial in FME\n");
+  if (isNonTrivialFME(matrix, numSpecies, numReactions) == TRUE)
+    printf("Test error: Trivial2 returned non-trivial in FME\n");
 }
 
 void testNontrivial1() {
-	// A+B -> A+C | 2C -> B+C
-	int numSpecies = 3;
-	int numReactions = 2;
-	double** matrix = (double**)malloc(numSpecies * sizeof(double*));
-	for (int i = 0; i < numSpecies; i++) {
-		matrix[i] = malloc(numReactions * sizeof(double));
-	}
+  // A+B -> A+C | 2C -> B+C
+  int numSpecies = 3;
+  int numReactions = 2;
+  double** matrix = (double**)malloc(numSpecies * sizeof(double*));
+  for (int i = 0; i < numSpecies; i++) {
+    matrix[i] = malloc(numReactions * sizeof(double));
+  }
 
-	matrix[0][0] = 0.0;
-	matrix[0][1] = 0.0;
-	matrix[1][0] = -1.0;
-	matrix[1][1] = 1.0;
-	matrix[2][0] = 1.0;
-	matrix[2][1] = -1.0;
+  matrix[0][0] = 0.0;
+  matrix[0][1] = 0.0;
+  matrix[1][0] = -1.0;
+  matrix[1][1] = 1.0;
+  matrix[2][0] = 1.0;
+  matrix[2][1] = -1.0;
 
-	if (isNonTrivialFME(matrix, numSpecies, numReactions) == FALSE)
-		printf("Test error: NonTrivial1 returned trivial in FME\n");
+  if (isNonTrivialFME(matrix, numSpecies, numReactions) == FALSE)
+    printf("Test error: NonTrivial1 returned trivial in FME\n");
 }
 
 void testNontrivial2() {
-	// A -> B+C | -> B+C | B+C -> A | B+C -> 
-	int numSpecies = 3;
-	int numReactions = 4;
-	double** matrix = (double**)malloc(numSpecies * sizeof(double*));
-	for (int i = 0; i < numSpecies; i++) {
-		matrix[i] = malloc(numReactions * sizeof(double));
-	}
+  // A -> B+C | -> B+C | B+C -> A | B+C -> 
+  int numSpecies = 3;
+  int numReactions = 4;
+  double** matrix = (double**)malloc(numSpecies * sizeof(double*));
+  for (int i = 0; i < numSpecies; i++) {
+    matrix[i] = malloc(numReactions * sizeof(double));
+  }
 
-	matrix[0][0] = -1.0;
-	matrix[0][1] = 0.0;
-	matrix[0][2] = 1.0;
-	matrix[0][3] = 0.0;
-	matrix[1][0] = 1.0;
-	matrix[1][1] = 1.0;
-	matrix[1][2] = -1.0;
-	matrix[1][3] = -1.0;
-	matrix[2][0] = 1.0;
-	matrix[2][1] = 1.0;
-	matrix[2][2] = -1.0;
-	matrix[2][3] = -1.0;
+  matrix[0][0] = -1.0;
+  matrix[0][1] = 0.0;
+  matrix[0][2] = 1.0;
+  matrix[0][3] = 0.0;
+  matrix[1][0] = 1.0;
+  matrix[1][1] = 1.0;
+  matrix[1][2] = -1.0;
+  matrix[1][3] = -1.0;
+  matrix[2][0] = 1.0;
+  matrix[2][1] = 1.0;
+  matrix[2][2] = -1.0;
+  matrix[2][3] = -1.0;
 
-	if (isNonTrivialFME(matrix, numSpecies, numReactions) == FALSE)
-		printf("Test error: NonTrivial2 returned trivial in FME\n");
+  if (isNonTrivialFME(matrix, numSpecies, numReactions) == FALSE)
+    printf("Test error: NonTrivial2 returned trivial in FME\n");
 }
 
 void testNontrivial3() {
-	// 2A->B+C | A+C->B+D | B+F->D+F | D+E->A+E
-	int numSpecies = 6;
-	int numReactions = 4;
-	double** matrix = (double**)malloc(numSpecies * sizeof(double*));
-	for (int i = 0; i < numSpecies; i++) {
-		matrix[i] = malloc(numReactions * sizeof(double));
-	}
+  // 2A->B+C | A+C->B+D | B+F->D+F | D+E->A+E
+  int numSpecies = 6;
+  int numReactions = 4;
+  double** matrix = (double**)malloc(numSpecies * sizeof(double*));
+  for (int i = 0; i < numSpecies; i++) {
+    matrix[i] = malloc(numReactions * sizeof(double));
+  }
 
-	matrix[0][0] = -2.0;
-	matrix[0][1] = -1.0;
-	matrix[0][2] = 0.0;
-	matrix[0][3] = 1.0;
+  matrix[0][0] = -2.0;
+  matrix[0][1] = -1.0;
+  matrix[0][2] = 0.0;
+  matrix[0][3] = 1.0;
 
-	matrix[1][0] = 1.0;
-	matrix[1][1] = 1.0;
-	matrix[1][2] = -1.0;
-	matrix[1][3] = 0.0;
+  matrix[1][0] = 1.0;
+  matrix[1][1] = 1.0;
+  matrix[1][2] = -1.0;
+  matrix[1][3] = 0.0;
 
-	matrix[2][0] = 1.0;
-	matrix[2][1] = -1.0;
-	matrix[2][2] = 0.0;
-	matrix[2][3] = 0.0;
+  matrix[2][0] = 1.0;
+  matrix[2][1] = -1.0;
+  matrix[2][2] = 0.0;
+  matrix[2][3] = 0.0;
 
-	matrix[3][0] = 0.0;
-	matrix[3][1] = 1.0;
-	matrix[3][2] = 1.0;
-	matrix[3][3] = -1.0;
+  matrix[3][0] = 0.0;
+  matrix[3][1] = 1.0;
+  matrix[3][2] = 1.0;
+  matrix[3][3] = -1.0;
 
-	matrix[4][0] = 0.0;
-	matrix[4][1] = 0.0;
-	matrix[4][2] = 0.0;
-	matrix[4][3] = 0.0;
+  matrix[4][0] = 0.0;
+  matrix[4][1] = 0.0;
+  matrix[4][2] = 0.0;
+  matrix[4][3] = 0.0;
 
-	matrix[5][0] = 0.0;
-	matrix[5][1] = 0.0;
-	matrix[5][2] = 0.0;
-	matrix[5][3] = 0.0;
+  matrix[5][0] = 0.0;
+  matrix[5][1] = 0.0;
+  matrix[5][2] = 0.0;
+  matrix[5][3] = 0.0;
 
-	if (isNonTrivialFME(matrix, numSpecies, numReactions) == FALSE)
-		printf("Test error: NonTrivial3 returned trivial in FME\n");
+  if (isNonTrivialFME(matrix, numSpecies, numReactions) == FALSE)
+    printf("Test error: NonTrivial3 returned trivial in FME\n");
 }
 
 void testNontrivial3_Hand() {
-	// D+E->A+E | B+F->D+F | A+C->B+D | 2A->B+C
-	int numSpecies = 6;
-	int numReactions = 4;
-	double** matrix = (double**)malloc(numSpecies * sizeof(double*));
-	for (int i = 0; i < numSpecies; i++) {
-		matrix[i] = malloc(numReactions * sizeof(double));
-	}
+  // D+E->A+E | B+F->D+F | A+C->B+D | 2A->B+C
+  int numSpecies = 6;
+  int numReactions = 4;
+  double** matrix = (double**)malloc(numSpecies * sizeof(double*));
+  for (int i = 0; i < numSpecies; i++) {
+    matrix[i] = malloc(numReactions * sizeof(double));
+  }
 
-	// E
-	matrix[0][0] = 0.0;
-	matrix[0][1] = 0.0;
-	matrix[0][2] = 0.0;
-	matrix[0][3] = 0.0;
+  // E
+  matrix[0][0] = 0.0;
+  matrix[0][1] = 0.0;
+  matrix[0][2] = 0.0;
+  matrix[0][3] = 0.0;
 
-	// F
-	matrix[1][0] = 0.0;
-	matrix[1][1] = 0.0;
-	matrix[1][2] = 0.0;
-	matrix[1][3] = 0.0;
+  // F
+  matrix[1][0] = 0.0;
+  matrix[1][1] = 0.0;
+  matrix[1][2] = 0.0;
+  matrix[1][3] = 0.0;
 
-	// C
-	matrix[2][0] = 0.0;
-	matrix[2][1] = 0.0;
-	matrix[2][2] = -1.0;
-	matrix[2][3] = 1.0;
+  // C
+  matrix[2][0] = 0.0;
+  matrix[2][1] = 0.0;
+  matrix[2][2] = -1.0;
+  matrix[2][3] = 1.0;
 
-	// A
-	matrix[3][0] = 1.0;
-	matrix[3][1] = 0.0;
-	matrix[3][2] = -1.0;
-	matrix[3][3] = -2.0;
+  // A
+  matrix[3][0] = 1.0;
+  matrix[3][1] = 0.0;
+  matrix[3][2] = -1.0;
+  matrix[3][3] = -2.0;
 
-	// D
-	matrix[4][0] = -1.0;
-	matrix[4][1] = 1.0;
-	matrix[4][2] = 1.0;
-	matrix[4][3] = 0.0;
+  // D
+  matrix[4][0] = -1.0;
+  matrix[4][1] = 1.0;
+  matrix[4][2] = 1.0;
+  matrix[4][3] = 0.0;
 
-	// B
-	matrix[5][0] = 0.0;
-	matrix[5][1] = -1.0;
-	matrix[5][2] = 1.0;
-	matrix[5][3] = 1.0;
+  // B
+  matrix[5][0] = 0.0;
+  matrix[5][1] = -1.0;
+  matrix[5][2] = 1.0;
+  matrix[5][3] = 1.0;
 
-	if (isNonTrivialFME(matrix, numSpecies, numReactions) == FALSE)
-		printf("Test error: NonTrivial3_Hand returned trivial in FME\n");
+  if (isNonTrivialFME(matrix, numSpecies, numReactions) == FALSE)
+    printf("Test error: NonTrivial3_Hand returned trivial in FME\n");
 }
 
 void testNontrivial4() {
-	// C+E->2A | A+E->B+C | B+F->E+F | C+D->B+D
-	int numSpecies = 6;
-	int numReactions = 4;
-	double** matrix = (double**)malloc(numSpecies * sizeof(double*));
-	for (int i = 0; i < numSpecies; i++) {
-		matrix[i] = malloc(numReactions * sizeof(double));
-	}
+  // C+E->2A | A+E->B+C | B+F->E+F | C+D->B+D
+  int numSpecies = 6;
+  int numReactions = 4;
+  double** matrix = (double**)malloc(numSpecies * sizeof(double*));
+  for (int i = 0; i < numSpecies; i++) {
+    matrix[i] = malloc(numReactions * sizeof(double));
+  }
 
-	matrix[0][0] = -1.0;
-	matrix[0][1] = 1.0;
-	matrix[0][2] = 0.0;
-	matrix[0][3] = -1.0;
+  matrix[0][0] = -1.0;
+  matrix[0][1] = 1.0;
+  matrix[0][2] = 0.0;
+  matrix[0][3] = -1.0;
 
-	matrix[1][0] = -1.0;
-	matrix[1][1] = -1.0;
-	matrix[1][2] = 1.0;
-	matrix[1][3] = 0.0;
-	
-	matrix[2][0] = 2.0;
-	matrix[2][1] = -1.0;
-	matrix[2][2] = 0.0;
-	matrix[2][3] = 0.0;
+  matrix[1][0] = -1.0;
+  matrix[1][1] = -1.0;
+  matrix[1][2] = 1.0;
+  matrix[1][3] = 0.0;
 
-	matrix[3][0] = 0.0;
-	matrix[3][1] = 1.0;
-	matrix[3][2] = -1.0;
-	matrix[3][3] = 1.0;
+  matrix[2][0] = 2.0;
+  matrix[2][1] = -1.0;
+  matrix[2][2] = 0.0;
+  matrix[2][3] = 0.0;
 
-	matrix[4][0] = 0.0;
-	matrix[4][1] = 0.0;
-	matrix[4][2] = 0.0;
-	matrix[4][3] = 0.0;
+  matrix[3][0] = 0.0;
+  matrix[3][1] = 1.0;
+  matrix[3][2] = -1.0;
+  matrix[3][3] = 1.0;
 
-	matrix[5][0] = 0.0;
-	matrix[5][1] = 0.0;
-	matrix[5][2] = 0.0;
-	matrix[5][3] = 0.0;
+  matrix[4][0] = 0.0;
+  matrix[4][1] = 0.0;
+  matrix[4][2] = 0.0;
+  matrix[4][3] = 0.0;
 
-	if (isNonTrivialFME(matrix, numSpecies, numReactions) == FALSE)
-		printf("Test error: NonTrivial4 returned trivial in FME\n");
+  matrix[5][0] = 0.0;
+  matrix[5][1] = 0.0;
+  matrix[5][2] = 0.0;
+  matrix[5][3] = 0.0;
+
+  if (isNonTrivialFME(matrix, numSpecies, numReactions) == FALSE)
+    printf("Test error: NonTrivial4 returned trivial in FME\n");
 }
 
 
 /**************************************************************************/
 int main(int argc, char *argv[]) {
 
-	/*testTrivial1();
-	testTrivial2();
-	testNontrivial1();
-	testNontrivial2();
-	testNontrivial3();
-	testNontrivial4();
-	testNontrivial3_Hand();*/
-	
-	return mainMethod(argc, argv);
+  /*testTrivial1();
+  testTrivial2();
+  testNontrivial1();
+  testNontrivial2();
+  testNontrivial3();
+  testNontrivial4();
+  testNontrivial3_Hand();*/
+
+  return mainMethod(argc, argv);
 }
