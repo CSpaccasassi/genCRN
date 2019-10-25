@@ -1,23 +1,23 @@
 /* command-line help and arguments passing adapted from vcolg.c version 2.0; B D McKay, May 11, 2017 */
 
 #define USAGE \
-"gencrn [-n#] [-q] [-z] [-c] [-t|-l|-m] [-x]  \n"
+"gencrn [-n#] [-q] [-z] [-c] [-t|-l|-m] [-x] [-s#] [-b] \n"
 
 #define HELPTEXT \
 "  Read digraphs and produce all non-isomorphic CRNs, where the digraphs specify the reaction network. The output format is LBS.\n\
    If the input digraphs are non-isomorphic then the output CRNs are also.\n\
    If the input graph is an undirected, it is considered a reversible network (each undirected edge is turned into two opposite directed edges).\n\
 \n\
-    -n# number of species\n\
-    -z  do not include the naught complex in any reaction (e.g. | -> A)\n\
-    -c  do not produce CRNs containing independent sub-CRNs (e.g. | A->B | C->D) \n\
-    -t  only produce \"dynamically non-trivial\" CRNs (see https://arxiv.org/abs/1705.10820) \n\
-    -m  only produce mass-conserving CRNs (all species are under some conservation law)\n\
-    -l  only produce CRNs with at least a conservation law\n\
-    -x  only produce CRNs with no conservation laws\n\
     -b  encode CRN reactions into 1 byte (#species <= 4) or 2 bytes, and print them as a stream of bytes\n\
-	  -s# species colouring. For example, \"-s1;3;2\" means that A has colour 1, B C and D have colour 2, E F have colour 3)\n\
-    -q  only count the number of CRNs\n"
+    -c  do not produce CRNs containing independent sub-CRNs (e.g. | A->B | C->D) \n\
+    -l  only produce CRNs with at least a conservation law\n\
+    -m  only produce mass-conserving CRNs (all species are under some conservation law)\n\
+    -n# number of species\n\
+    -q  only count the number of CRNs\n\
+    -s# species colouring. For example, \"-s1;3;2\" means that A has colour 1, B C and D have colour 2, E F have colour 3)\n\
+    -t  only produce \"dynamically non-trivial\" CRNs (see https://arxiv.org/abs/1705.10820) \n\
+    -x  only produce CRNs with no conservation laws\n\
+    -z  do not include the naught complex in any reaction (e.g. | -> A)\n"
 
 /*************************************************************************/
 
