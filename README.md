@@ -83,6 +83,7 @@ Below is a table showing all possible flags, and examples of using them.
 | -l    | Only produce CRNs with at least a conservation law |
 | -x    | Only produce CRNs with no conservation laws |
 | -q    | Only count the number of CRNs |
+| -s#   | Assign special classes to species |
 
 #### Examples
 Count the number of non-isomorphic CRNs with 3 species and 3 reactions:
@@ -100,6 +101,12 @@ Count all non-isomorphic mass-conserving CRNs with 3 species and 3 reactions:
 Count all non-isomorphic, non-trivial and connected CRNs with 3 species and 3 reactions:
 
 `./genCRN -n3 -t -c -q crn_3_3.txt`
+
+Count all non-isomorphic, non-trivial and connected CRNs with 3 species and 3 reactions, where species A is not isomorphic to species B or C:
+
+`./genCRN -n3 -t -c -q -'s1;2' crn_3_3.txt`
+
+(the use of single quotes allows some terminals to escape the semicolon character.)
 
 #### Reversible CRNs
 To enumerate reversible CRNs, it is sufficient to remove the invokation of `directg.exe` from the output of `genInputGraphs`. This can be achieved by another call to `sed`, such as `./genInputGraphs 3 3 | sed -e 's/ | \.\/directg -e3//g'`. The resulting input undirected graphs can then be passed to `genCRN`, which will automatically interpret them as digraphs where each undirected graph is replaced by two edges with opposite directions.
@@ -182,3 +189,8 @@ hash(i, j) = (N * i - i * (i+1)/ 2) + (j - i - 1)
 (*Ai* stands for the *i*th species, where *i* is an index from  0 to N-1)
 
 The reason why CRNs with up to 4 species can be represented in a single byte is the following. The total number of complexes in a bimolecular CRN with N species is (N+2)-choose-2, which in the case of 4 species is 15. A reaction can be considered as a pair of (not ) complexes, therefore there are 15 * 14 = 210 possible reactions in a 4 species CRN, which fits into a single byte (up to 255). 
+
+## CRN class partitioning
+In the above description, CRN enumeration assumes that all species are isomorphic to each other in a CRN. In some scenarios, this might be inappropriate, because some species might have significantly different properties than others. For example, in reaction-diffusion systems, species A might represent a molecule that diffuses much faster in a solution than species B and C. Reactions A + B -> 2C and B + C -> 2A would normally be considered isomorphic, but the faster diffusivity of A would makes the spatiotemporal dynamics of the former reaction very different from the latter one. Therefore, it can be desirable to consider those two CRNs as non-isomophic. Whereas, reactions A + B -> 2C and A + C -> 2B would still be considered isomorphic, since B and C don't play a special role.
+
+To support this scenario, we can specify that species A belongs to one class, and that species B and C belong to another separate class. More generally, `genCRN` supports the partitioning of CRN species into N classes. Species are considered isomorphic if and only if they belong to the same class. Given a Complex-Species graph (see "Fast enumeration of non-isomorphic chemical reaction networks"), the enumeration of such CRNs can be encoded by adding to the CS graph a new layer of vertices that assigns a class to a set of species, in the same fashion that species nodes in a CS graph assign a species to complexes. The enumeration algorithm of classes is very similar to the enumeration algorithm of CS graphs.
