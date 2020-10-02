@@ -13,6 +13,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "directg", "directg\directg.
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TestGenCRN", "TestGenCRN\TestGenCRN.fsproj", "{01A8747B-51B0-4205-8C7D-C4C5B996998B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "splitCRN", "splitCRN\splitCRN.vcxproj", "{3F60EB1D-E651-4D88-85C6-3E7AB8A2A4E1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -75,6 +77,16 @@ Global
 		{01A8747B-51B0-4205-8C7D-C4C5B996998B}.Release|x64.Build.0 = Release|Any CPU
 		{01A8747B-51B0-4205-8C7D-C4C5B996998B}.Release|x86.ActiveCfg = Release|Any CPU
 		{01A8747B-51B0-4205-8C7D-C4C5B996998B}.Release|x86.Build.0 = Release|Any CPU
+		{3F60EB1D-E651-4D88-85C6-3E7AB8A2A4E1}.Debug|Any CPU.ActiveCfg = Debug|Win32
+		{3F60EB1D-E651-4D88-85C6-3E7AB8A2A4E1}.Debug|x64.ActiveCfg = Debug|x64
+		{3F60EB1D-E651-4D88-85C6-3E7AB8A2A4E1}.Debug|x64.Build.0 = Debug|x64
+		{3F60EB1D-E651-4D88-85C6-3E7AB8A2A4E1}.Debug|x86.ActiveCfg = Debug|Win32
+		{3F60EB1D-E651-4D88-85C6-3E7AB8A2A4E1}.Debug|x86.Build.0 = Debug|Win32
+		{3F60EB1D-E651-4D88-85C6-3E7AB8A2A4E1}.Release|Any CPU.ActiveCfg = Release|Win32
+		{3F60EB1D-E651-4D88-85C6-3E7AB8A2A4E1}.Release|x64.ActiveCfg = Release|x64
+		{3F60EB1D-E651-4D88-85C6-3E7AB8A2A4E1}.Release|x64.Build.0 = Release|x64
+		{3F60EB1D-E651-4D88-85C6-3E7AB8A2A4E1}.Release|x86.ActiveCfg = Release|Win32
+		{3F60EB1D-E651-4D88-85C6-3E7AB8A2A4E1}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

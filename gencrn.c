@@ -27,6 +27,8 @@
 #include "nautinv.h"
 #ifdef _WIN32
 #include <windows.h>
+#include <io.h>
+#include <fcntl.h>
 #else
 #include <math.h>
 #endif
@@ -2703,8 +2705,19 @@ mainMethod(int argc, char *argv[])
       int reactionsCount = 0;
       for (int i = 0; i < n; i++)
         reactionsCount += XPOPCOUNT(g[i]);
-      printf("%i\n%i\n", speciesCount, reactionsCount);
       byteEncodingPrinted = TRUE;
+#ifdef _WIN32
+      // set stdout in binary mode to escape ASCII characters
+      int setmode_r = _setmode(_fileno(stdout), _O_BINARY); // avoids e.g. that \n automatically printed as \r\n and disrupt the byte output
+      if (setmode_r == -1) {
+        fprintf(stderr, "Error: cannot set stdout to binary mode.\n");
+        exit(-1);
+      }
+      printf("%i\r\n%i\r\n", speciesCount, reactionsCount);
+#else
+      printf("%i\n%i\n", speciesCount, reactionsCount);
+#endif
+
     }
     if (noZeroNodeSwitch == TRUE) maxComplexes--;
     if (n <= maxComplexes) {
